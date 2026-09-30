@@ -35,9 +35,13 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Internal Server Error', details: err.message });
 });
 
-app.listen(PORT, () => {
-  console.log(`=======================================================`);
-  console.log(`🚀 NIVRA Platform Server running on port ${PORT}`);
-  console.log(`🔗 API Base Endpoint: http://localhost:${PORT}/api`);
-  console.log(`=======================================================`);
-});
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`=======================================================`);
+    console.log(`🚀 NIVRA Platform Server running on port ${PORT}`);
+    console.log(`🔗 API Base Endpoint: http://localhost:${PORT}/api`);
+    console.log(`=======================================================`);
+  });
+}
+
+module.exports = app;
