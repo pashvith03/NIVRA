@@ -29,33 +29,15 @@ export default function SplashScreen() {
       {/* ── Hero Center Logo & Branding ── */}
       <div className="flex flex-col items-center text-center relative z-10 fade-in">
 
-        {/* 3D Glowing Glass N Ribbon Logo */}
-        <div
-          className="relative w-28 h-28 sm:w-32 sm:h-32 rounded-3xl mb-8 flex items-center justify-center shadow-2xl transition-all"
+        {/* Official NIVRA Brand Logo */}
+        <img
+          src="/nivra_logo.png"
+          alt="NIVRA Logo"
+          className="w-28 h-28 sm:w-32 sm:h-32 rounded-3xl mb-8 object-cover shadow-2xl border border-white/40"
           style={{
-            background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.2) 0%, rgba(0, 198, 255, 0.3) 50%, rgba(123, 47, 255, 0.3) 100%)',
-            backdropFilter: 'blur(30px)',
-            WebkitBackdropFilter: 'blur(30px)',
-            border: '1px solid rgba(255, 255, 255, 0.4)',
-            boxShadow: '0 20px 50px rgba(0, 198, 255, 0.4), inset 0 2px 4px rgba(255, 255, 255, 0.6)',
+            boxShadow: '0 20px 50px rgba(0, 198, 255, 0.4)',
           }}
-        >
-          {/* Subtle Glowing N Text Ribbon Effect */}
-          <span
-            className="font-display font-black text-6xl sm:text-7xl tracking-tighter"
-            style={{
-              background: 'linear-gradient(135deg, #FFFFFF 0%, #00C6FF 50%, #E2C4FF 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              filter: 'drop-shadow(0 4px 12px rgba(0, 198, 255, 0.6))',
-            }}
-          >
-            N
-          </span>
-
-          {/* Inner Highlight Reflection */}
-          <div className="absolute inset-0 rounded-3xl bg-gradient-to-tr from-transparent via-white/20 to-transparent pointer-events-none" />
-        </div>
+        />
 
         {/* App Title */}
         <h1

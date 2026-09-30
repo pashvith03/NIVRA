@@ -25,10 +25,12 @@ export default function Header({ currentTab, setCurrentTab }) {
             className="flex items-center gap-3 cursor-pointer"
             onClick={() => setCurrentTab('home')}
           >
-            {/* 3D Glowing N Logo */}
-            <div className="n-logo-box">
-              N
-            </div>
+            {/* Official NIVRA Brand Logo */}
+            <img
+              src="/nivra_logo.png"
+              alt="NIVRA Logo"
+              className="w-11 h-11 rounded-xl object-cover border border-amber-400/40 shadow-lg"
+            />
 
             {/* App Name & Tagline */}
             <div>

@@ -92,35 +92,20 @@ export default function LoginScreen() {
           width: '100%',
         }}
       >
-        {/* 3D Glowing Glass N Ribbon Logo */}
-        <div
+        {/* Official NIVRA Brand Logo */}
+        <img
+          src="/nivra_logo.png"
+          alt="NIVRA Logo"
           style={{
-            width: '64px',
-            height: '64px',
-            borderRadius: '18px',
+            width: '72px',
+            height: '72px',
+            borderRadius: '20px',
             marginBottom: '14px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.4) 0%, rgba(236, 72, 153, 0.35) 50%, rgba(139, 92, 246, 0.35) 100%)',
-            backdropFilter: 'blur(20px)',
-            WebkitBackdropFilter: 'blur(20px)',
+            objectFit: 'cover',
             border: '1px solid rgba(245, 215, 175, 0.4)',
-            boxShadow: '0 12px 30px rgba(245, 158, 11, 0.35), inset 0 1px 2px rgba(255,255,255,0.6)',
+            boxShadow: '0 12px 30px rgba(245, 158, 11, 0.35)',
           }}
-        >
-          <span
-            style={{
-              fontFamily: "'Space Grotesk', sans-serif",
-              fontWeight: 900,
-              fontSize: '32px',
-              color: '#FFFFFF',
-              textShadow: '0 2px 8px rgba(245, 158, 11, 0.6)',
-            }}
-          >
-            N
-          </span>
-        </div>
+        />
 
         {/* Title */}
         <h1
