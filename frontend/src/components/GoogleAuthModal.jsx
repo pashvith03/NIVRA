@@ -20,16 +20,15 @@ export default function GoogleAuthModal({ isOpen, onClose }) {
 
   return (
     <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center p-4 fade-in"
-      style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(16px)' }}
+      className="modal-backdrop z-[9999]"
       onClick={e => { if (e.target === e.currentTarget && !verifyingAccount) onClose(); }}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Sign in with Google"
     >
-      <div
-        className="glass-panel w-full max-w-md p-6 relative overflow-hidden rounded-3xl"
-        style={{ border: '1px solid rgba(245, 158, 11, 0.4)', backgroundColor: '#151221' }}
-      >
+      <div className="glass-panel glass-modal w-full max-w-md p-6" style={{ borderRadius: 'var(--r-xl)' }}>
         {!verifyingAccount && (
-          <button onClick={onClose} className="btn-icon absolute top-4 right-4 text-white/60 hover:text-white">
+          <button onClick={onClose} className="btn-icon absolute top-4 right-4" aria-label="Close">
             <X className="w-4 h-4" />
           </button>
         )}
@@ -87,7 +86,7 @@ export default function GoogleAuthModal({ isOpen, onClose }) {
 
             {/* Current Active Account Card (if logged in) */}
             {user?.isLoggedIn && (
-              <div className="mb-4 p-3 bg-white/5 border border-amber-400/40 rounded-2xl flex items-center justify-between">
+              <div className="mb-4 p-3 glass-well flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <img
                     src={user.avatar}
@@ -120,7 +119,7 @@ export default function GoogleAuthModal({ isOpen, onClose }) {
                 <button
                   key={idx}
                   onClick={() => handleSelectAccount(acc.name, acc.email)}
-                  className="w-full p-3.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-amber-400/50 flex items-center justify-between text-left transition-all duration-200 cursor-pointer"
+                  className="glass-card w-full p-3.5 flex items-center justify-between text-left"
                 >
                   <div className="flex items-center gap-3">
                     <div

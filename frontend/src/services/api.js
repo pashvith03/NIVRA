@@ -1,6 +1,16 @@
 // frontend/src/services/api.js
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
+// GET helper: builds an encoded query string and treats non-2xx as failure
+async function getJSON(path, params = {}) {
+  const qs = new URLSearchParams(
+    Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== '')
+  ).toString();
+  const res = await fetch(`${API_BASE_URL}${path}${qs ? `?${qs}` : ''}`);
+  if (!res.ok) throw new Error(`${path} responded ${res.status}`);
+  return res.json();
+}
+
 /**
  * Send Natural Language query to Backend AI Engine
  */
@@ -57,11 +67,25 @@ export async function analyzeImageAI(file, sampleType) {
  */
 export async function getScholarships(category = 'all', search = '') {
   try {
-    const res = await fetch(`${API_BASE_URL}/scholarships?category=${category}&search=${search}`);
-    const data = await res.json();
+    const data = await getJSON('/scholarships', { category, search });
     return data.data || [];
-  } catch (e) {
+  } catch {
     return fallbackScholarships;
+  }
+}
+
+/**
+ * Fetch one scholarship (null when it doesn't exist)
+ */
+export async function getScholarshipById(id) {
+  try {
+    const res = await fetch(`${API_BASE_URL}/scholarships/${encodeURIComponent(id)}`);
+    if (res.status === 404) return null;
+    if (!res.ok) throw new Error('Scholarship lookup failed');
+    const data = await res.json();
+    return data.data || null;
+  } catch {
+    return fallbackScholarships.find(s => s.id === id) || null;
   }
 }
 
@@ -70,10 +94,9 @@ export async function getScholarships(category = 'all', search = '') {
  */
 export async function getEducationLoans() {
   try {
-    const res = await fetch(`${API_BASE_URL}/loans`);
-    const data = await res.json();
+    const data = await getJSON('/loans');
     return data.data || [];
-  } catch (e) {
+  } catch {
     return fallbackLoans;
   }
 }
@@ -83,10 +106,9 @@ export async function getEducationLoans() {
  */
 export async function getGovernmentSchemes(search = '') {
   try {
-    const res = await fetch(`${API_BASE_URL}/schemes?search=${search}`);
-    const data = await res.json();
+    const data = await getJSON('/schemes', { search });
     return data.data || [];
-  } catch (e) {
+  } catch {
     return fallbackSchemes;
   }
 }
@@ -96,10 +118,9 @@ export async function getGovernmentSchemes(search = '') {
  */
 export async function getServiceGuides() {
   try {
-    const res = await fetch(`${API_BASE_URL}/guides`);
-    const data = await res.json();
+    const data = await getJSON('/guides');
     return data.data || [];
-  } catch (e) {
+  } catch {
     return fallbackGuides;
   }
 }
@@ -109,11 +130,10 @@ export async function getServiceGuides() {
  */
 export async function getEmergencyData(type = 'all') {
   try {
-    const res = await fetch(`${API_BASE_URL}/emergency?type=${type}`);
-    return await res.json();
-  } catch (e) {
+    return await getJSON('/emergency', { type });
+  } catch {
     return {
-      emergencyFacilities: fallbackEmergency,
+      emergencyFacilities: type === 'all' ? fallbackEmergency : fallbackEmergency.filter(f => f.type === type),
       disasterShelters: fallbackShelters
     };
   }
@@ -136,8 +156,9 @@ export async function submitDisasterReport(reportData, imageFile) {
       method: 'POST',
       body: formData
     });
+    if (!res.ok) throw new Error('Report submission failed');
     return await res.json();
-  } catch (e) {
+  } catch {
     return {
       success: true,
       message: "Disaster report submitted locally. Transmitting to emergency squad.",
@@ -159,10 +180,9 @@ export async function submitDisasterReport(reportData, imageFile) {
  */
 export async function getTrackers() {
   try {
-    const res = await fetch(`${API_BASE_URL}/trackers`);
-    const data = await res.json();
+    const data = await getJSON('/trackers');
     return data.data || [];
-  } catch (e) {
+  } catch {
     return fallbackTrackers;
   }
 }
@@ -174,8 +194,9 @@ export async function addTracker(trackerData) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(trackerData)
     });
+    if (!res.ok) throw new Error('Tracker save failed');
     return await res.json();
-  } catch (e) {
+  } catch {
     return {
       success: true,
       tracker: {
@@ -192,6 +213,14 @@ export async function addTracker(trackerData) {
         nextReminder: trackerData.nextReminder || "Check back in 5 days"
       }
     };
+  }
+}
+
+export async function deleteTracker(id) {
+  try {
+    await fetch(`${API_BASE_URL}/trackers/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  } catch {
+    // offline: removal is local only
   }
 }
 
