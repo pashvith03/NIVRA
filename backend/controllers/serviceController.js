@@ -15,8 +15,16 @@ const getScholarships = (req, res) => {
   const { category, search } = req.query;
   let results = [...scholarships];
 
+  // Category chips (engineering, ug, pg, girls...) match category, level or tags
   if (category && category !== "all") {
-    results = results.filter(s => s.category.toLowerCase().includes(category.toLowerCase()));
+    const c = category.toLowerCase();
+    const aliases = { engineering: ["engineering", "btech", "technical"], ug: ["ug", "undergraduate", "degree"], pg: ["pg", "postgraduate"] };
+    const terms = aliases[c] || [c];
+    results = results.filter(s => terms.some(t =>
+      s.category.toLowerCase().includes(t) ||
+      s.level.toLowerCase().includes(t) ||
+      s.tags.some(tag => tag.toLowerCase() === t)
+    ));
   }
 
   if (search) {
@@ -31,6 +39,13 @@ const getScholarships = (req, res) => {
   res.json({ success: true, count: results.length, data: results });
 };
 
+// GET a single scholarship
+const getScholarshipById = (req, res) => {
+  const item = scholarships.find(s => s.id === req.params.id);
+  if (!item) return res.status(404).json({ error: "Scholarship not found" });
+  res.json({ success: true, data: item });
+};
+
 // GET education loans
 const getLoans = (req, res) => {
   res.json({ success: true, count: educationLoans.length, data: educationLoans });
@@ -40,6 +55,10 @@ const getLoans = (req, res) => {
 const getGovernmentSchemes = (req, res) => {
   const { category, search } = req.query;
   let results = [...governmentSchemes];
+
+  if (category && category !== "all") {
+    results = results.filter(s => s.category.toLowerCase().includes(category.toLowerCase()));
+  }
 
   if (search) {
     const q = search.toLowerCase();
@@ -51,6 +70,13 @@ const getGovernmentSchemes = (req, res) => {
   }
 
   res.json({ success: true, count: results.length, data: results });
+};
+
+// GET a single government scheme
+const getSchemeById = (req, res) => {
+  const item = governmentSchemes.find(s => s.id === req.params.id);
+  if (!item) return res.status(404).json({ error: "Scheme not found" });
+  res.json({ success: true, data: item });
 };
 
 // GET government service guides
@@ -74,6 +100,11 @@ const getEmergencyServices = (req, res) => {
   });
 };
 
+// GET disaster relief shelters
+const getShelters = (req, res) => {
+  res.json({ success: true, count: disasterShelters.length, data: disasterShelters });
+};
+
 // Disaster Issue Reporting (POST new report)
 const createDisasterReport = (req, res) => {
   const { category, location, description, severity, contactNumber } = req.body;
@@ -83,7 +114,7 @@ const createDisasterReport = (req, res) => {
   }
 
   const newReport = {
-    id: "rep-" + (Date.now() % 10000),
+    id: "rep-" + Date.now(),
     category: category || "General Disaster Emergency",
     location,
     description,
@@ -91,7 +122,7 @@ const createDisasterReport = (req, res) => {
     reportedAt: new Date().toISOString(),
     status: "Logged & Transmitted to Response Squad",
     contactNumber: contactNumber || "Not Provided",
-    image: req.file ? `/uploads/${req.file.filename}` : null
+    image: req.file ? `/api/uploads/${req.file.filename}` : null
   };
 
   disasterReports.unshift(newReport);
@@ -122,7 +153,7 @@ const addTracker = (req, res) => {
   }
 
   const newTracker = {
-    id: "tr-" + (Date.now() % 10000),
+    id: "tr-" + Date.now(),
     title,
     type: type || "Government Scheme",
     referenceNo,
@@ -145,14 +176,26 @@ const addTracker = (req, res) => {
   });
 };
 
+// DELETE an application tracker
+const deleteTracker = (req, res) => {
+  const idx = applicationTrackers.findIndex(t => t.id === req.params.id);
+  if (idx === -1) return res.status(404).json({ error: "Tracker not found" });
+  applicationTrackers.splice(idx, 1);
+  res.json({ success: true });
+};
+
 module.exports = {
   getScholarships,
+  getScholarshipById,
   getLoans,
   getGovernmentSchemes,
+  getSchemeById,
   getServiceGuides,
   getEmergencyServices,
+  getShelters,
   createDisasterReport,
   getDisasterReports,
   getTrackers,
-  addTracker
+  addTracker,
+  deleteTracker
 };

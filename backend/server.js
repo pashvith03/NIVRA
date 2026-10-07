@@ -1,7 +1,6 @@
 // backend/server.js
 const express = require('express');
 const cors = require('cors');
-const path = require('path');
 require('dotenv').config();
 
 const apiRoutes = require('./routes/api');
@@ -13,9 +12,6 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-
-// Static directory for uploaded disaster issue photos
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Health Check Endpoint
 app.get('/health', (req, res) => {
@@ -30,9 +26,14 @@ app.get('/health', (req, res) => {
 app.use('/api', apiRoutes);
 
 // Global Error Handler
+// eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {
-  console.error('Unhandled Error:', err);
-  res.status(500).json({ error: 'Internal Server Error', details: err.message });
+  // Multer and validation errors are client errors, not server faults
+  const status = err.status || (err.name === 'MulterError' ? 400 : 500);
+  if (status >= 500) console.error('Unhandled Error:', err);
+  res.status(status).json({
+    error: status >= 500 ? 'Internal Server Error' : err.message
+  });
 });
 
 if (require.main === module) {

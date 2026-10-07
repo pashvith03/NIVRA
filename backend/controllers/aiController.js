@@ -7,7 +7,7 @@ const { scholarships, educationLoans, governmentSchemes, serviceGuides, emergenc
 const processAIQuery = (req, res) => {
   const { query, userRole = "all", profile = {} } = req.body;
 
-  if (!query || query.trim() === "") {
+  if (typeof query !== "string" || query.trim() === "") {
     return res.status(400).json({ error: "Query cannot be empty" });
   }
 
@@ -85,7 +85,7 @@ const processAIQuery = (req, res) => {
     // Custom filter based on query keywords
     if (text.includes("girl") || text.includes("female") || text.includes("women")) {
       matchedItems = scholarships.filter(s => s.tags.includes("girls") || s.tags.includes("merit"));
-    } else if (text.includes("sc") || text.includes("st") || text.includes("obc")) {
+    } else if (/\b(sc|st|obc)\b/.test(text)) {
       matchedItems = scholarships.filter(s => s.tags.includes("sc") || s.tags.includes("st") || s.tags.includes("obc"));
     } else {
       matchedItems = scholarships;
