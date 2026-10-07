@@ -1,5 +1,5 @@
 // frontend/src/context/LanguageContext.jsx
-import React, { createContext, useState, useContext } from 'react';
+import React, { createContext, useState, useContext, useEffect } from 'react';
 
 const LanguageContext = createContext();
 
@@ -127,8 +127,15 @@ export const translations = {
 };
 
 export const LanguageProvider = ({ children }) => {
-  const [lang, setLang] = useState('en');
+  const [lang, setLang] = useState(() => {
+    try { return localStorage.getItem('nivra_lang') || 'en'; } catch { return 'en'; }
+  });
   const t = translations[lang] || translations.en;
+
+  useEffect(() => {
+    document.documentElement.lang = lang;
+    try { localStorage.setItem('nivra_lang', lang); } catch { /* storage unavailable */ }
+  }, [lang]);
 
   return (
     <LanguageContext.Provider value={{ lang, setLang, t }}>

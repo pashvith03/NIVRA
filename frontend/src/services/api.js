@@ -1,54 +1,28 @@
 // frontend/src/services/api.js
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
+// Public content + AI. Content falls back to bundled samples when the API is unreachable;
+// user data (services/userApi.js) never fakes success.
+import { API_BASE_URL, getJSON, request } from './http';
 
 /**
- * Send Natural Language query to Backend AI Engine
+ * Ask the assistant. `history` is the recent conversation so follow-up questions work.
+ * Throws ApiError when the server can't be reached (no fake answers).
  */
-export async function sendAIQuery(query, userRole = 'all') {
-  try {
-    const response = await fetch(`${API_BASE_URL}/ai/chat`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query, userRole })
-    });
-    if (!response.ok) throw new Error('AI Server response error');
-    return await response.json();
-  } catch (error) {
-    console.warn('Backend server offline/connecting. Using fallback AI engine response.', error);
-    // Client-side fallback AI matching
-    return generateFallbackAIResponse(query);
-  }
+export function sendAIQuery(query, history = []) {
+  return request('/ai/chat', { method: 'POST', body: { query, history } });
 }
 
 /**
- * Upload image for AI disaster hazard vision analysis
+ * Analyse a report photo. Resolves to { available: false } when the server has no AI configured.
  */
-export async function analyzeImageAI(file, sampleType) {
+export async function analyzePhoto(file, note) {
+  const form = new FormData();
+  form.append('image', file);
+  if (note) form.append('note', note);
   try {
-    const formData = new FormData();
-    if (file) formData.append('image', file);
-    if (sampleType) formData.append('sampleType', sampleType);
-
-    const response = await fetch(`${API_BASE_URL}/ai/analyze-image`, {
-      method: 'POST',
-      body: formData
-    });
-    if (!response.ok) throw new Error('AI Vision response error');
-    return await response.json();
-  } catch (error) {
-    return {
-      success: true,
-      fileName: file ? file.name : (sampleType || "flood_hazard_sample.jpg"),
-      detectedCategory: sampleType === 'fire' ? 'Active Fire Hazard' : 'Flooding & Waterlogging',
-      confidence: '95%',
-      emergencyLevel: sampleType === 'fire' ? 'CRITICAL' : 'HIGH',
-      aiSummary: 'AI Vision Analysis detected urban waterlogging with submerged access routes. Immediate evacuation notice issued.',
-      recommendedActions: [
-        'Dispatched alert to Regional Disaster Response Squad',
-        'Redirected to nearest Flood Relief Shelter (Indoor Sports Complex)',
-        'Emergency SMS broadcast created'
-      ]
-    };
+    return await request('/ai/analyze-image', { method: 'POST', form });
+  } catch (err) {
+    if (err.status === 503) return { available: false };
+    throw err;
   }
 }
 
@@ -57,11 +31,25 @@ export async function analyzeImageAI(file, sampleType) {
  */
 export async function getScholarships(category = 'all', search = '') {
   try {
-    const res = await fetch(`${API_BASE_URL}/scholarships?category=${category}&search=${search}`);
-    const data = await res.json();
+    const data = await getJSON('/scholarships', { category, search });
     return data.data || [];
-  } catch (e) {
+  } catch {
     return fallbackScholarships;
+  }
+}
+
+/**
+ * Fetch one scholarship (null when it doesn't exist)
+ */
+export async function getScholarshipById(id) {
+  try {
+    const res = await fetch(`${API_BASE_URL}/scholarships/${encodeURIComponent(id)}`);
+    if (res.status === 404) return null;
+    if (!res.ok) throw new Error('Scholarship lookup failed');
+    const data = await res.json();
+    return data.data || null;
+  } catch {
+    return fallbackScholarships.find(s => s.id === id) || null;
   }
 }
 
@@ -70,10 +58,9 @@ export async function getScholarships(category = 'all', search = '') {
  */
 export async function getEducationLoans() {
   try {
-    const res = await fetch(`${API_BASE_URL}/loans`);
-    const data = await res.json();
+    const data = await getJSON('/loans');
     return data.data || [];
-  } catch (e) {
+  } catch {
     return fallbackLoans;
   }
 }
@@ -83,10 +70,9 @@ export async function getEducationLoans() {
  */
 export async function getGovernmentSchemes(search = '') {
   try {
-    const res = await fetch(`${API_BASE_URL}/schemes?search=${search}`);
-    const data = await res.json();
+    const data = await getJSON('/schemes', { search });
     return data.data || [];
-  } catch (e) {
+  } catch {
     return fallbackSchemes;
   }
 }
@@ -96,10 +82,9 @@ export async function getGovernmentSchemes(search = '') {
  */
 export async function getServiceGuides() {
   try {
-    const res = await fetch(`${API_BASE_URL}/guides`);
-    const data = await res.json();
+    const data = await getJSON('/guides');
     return data.data || [];
-  } catch (e) {
+  } catch {
     return fallbackGuides;
   }
 }
@@ -109,88 +94,11 @@ export async function getServiceGuides() {
  */
 export async function getEmergencyData(type = 'all') {
   try {
-    const res = await fetch(`${API_BASE_URL}/emergency?type=${type}`);
-    return await res.json();
-  } catch (e) {
+    return await getJSON('/emergency', { type });
+  } catch {
     return {
-      emergencyFacilities: fallbackEmergency,
+      emergencyFacilities: type === 'all' ? fallbackEmergency : fallbackEmergency.filter(f => f.type === type),
       disasterShelters: fallbackShelters
-    };
-  }
-}
-
-/**
- * Submit Disaster Issue Report
- */
-export async function submitDisasterReport(reportData, imageFile) {
-  try {
-    const formData = new FormData();
-    formData.append('category', reportData.category);
-    formData.append('location', reportData.location);
-    formData.append('description', reportData.description);
-    formData.append('severity', reportData.severity);
-    formData.append('contactNumber', reportData.contactNumber);
-    if (imageFile) formData.append('image', imageFile);
-
-    const res = await fetch(`${API_BASE_URL}/reports`, {
-      method: 'POST',
-      body: formData
-    });
-    return await res.json();
-  } catch (e) {
-    return {
-      success: true,
-      message: "Disaster report submitted locally. Transmitting to emergency squad.",
-      report: {
-        id: "rep-" + Date.now(),
-        category: reportData.category,
-        location: reportData.location,
-        description: reportData.description,
-        severity: reportData.severity,
-        reportedAt: new Date().toISOString(),
-        status: "Transmitted to Emergency Control Room"
-      }
-    };
-  }
-}
-
-/**
- * Fetch & Add Application Trackers
- */
-export async function getTrackers() {
-  try {
-    const res = await fetch(`${API_BASE_URL}/trackers`);
-    const data = await res.json();
-    return data.data || [];
-  } catch (e) {
-    return fallbackTrackers;
-  }
-}
-
-export async function addTracker(trackerData) {
-  try {
-    const res = await fetch(`${API_BASE_URL}/trackers`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(trackerData)
-    });
-    return await res.json();
-  } catch (e) {
-    return {
-      success: true,
-      tracker: {
-        id: "tr-" + Date.now(),
-        title: trackerData.title,
-        type: trackerData.type,
-        referenceNo: trackerData.referenceNo,
-        appliedDate: new Date().toISOString().split('T')[0],
-        currentStatus: "Submitted - Processing",
-        steps: [
-          { name: "Application Submitted", done: true, date: new Date().toISOString().split('T')[0] },
-          { name: "Department Verification", done: false, date: "In Progress" }
-        ],
-        nextReminder: trackerData.nextReminder || "Check back in 5 days"
-      }
     };
   }
 }
@@ -345,59 +253,3 @@ const fallbackShelters = [
     contactPhone: "+91 98765 43210"
   }
 ];
-
-const fallbackTrackers = [
-  {
-    id: "tr-1",
-    title: "Central Sector Scheme of Scholarships",
-    type: "Scholarship",
-    referenceNo: "NSP/2026/894120",
-    appliedDate: "2026-08-15",
-    currentStatus: "Under Institute Verification",
-    steps: [
-      { name: "Submitted", done: true, date: "2026-08-15" },
-      { name: "Institute Verification", done: false, date: "In Progress" },
-      { name: "DBT Disbursal", done: false, date: "Pending" }
-    ],
-    nextReminder: "Check verification status by Sep 30, 2026"
-  }
-];
-
-function generateFallbackAIResponse(query) {
-  const text = query.toLowerCase();
-  let intent = "GENERAL_GUIDANCE";
-  let responseText = "";
-
-  if (text.includes("fee") || text.includes("scholarship") || text.includes("college") || text.includes("btech") || text.includes("student")) {
-    intent = "STUDENT_SCHOLARSHIP";
-    responseText = "🎓 Identified your requirement as **Student Scholarship & Fee Support**. Here are top matching options for your education.";
-  } else if (text.includes("loan") || text.includes("vidya lakshmi")) {
-    intent = "STUDENT_LOAN";
-    responseText = "🏦 Identified requirement as **Student Education Loan Assistance**. No collateral needed up to ₹7.5 Lakhs.";
-  } else if (text.includes("flood") || text.includes("rain") || text.includes("shelter") || text.includes("disaster")) {
-    intent = "DISASTER_ASSISTANCE";
-    responseText = "🚨 **Disaster Assistance Identified**: Immediate relief camp locations and disaster response guidance dispatched.";
-  } else if (text.includes("hospital") || text.includes("ambulance") || text.includes("police") || text.includes("fire")) {
-    intent = "EMERGENCY_LOCATOR";
-    responseText = "🚑 **Emergency Locator Active**: Contact numbers (112, 108) and nearby facilities available.";
-  } else {
-    responseText = "💡 **AI Assistance Ready**: Browse tailored scholarships, schemes, or emergency services below.";
-  }
-
-  return {
-    success: true,
-    intentCategory: intent,
-    responseText: responseText,
-    matchedItems: fallbackScholarships.concat(fallbackSchemes),
-    documentChecklist: ["Aadhaar Card", "Income Certificate", "Academic Marksheet"],
-    nextSteps: [
-      "Select a service card to review eligibility",
-      "Prepare your Aadhaar and Income Certificate",
-      "Apply directly on the linked official government portal"
-    ],
-    officialSources: [
-      { name: "myScheme Official Portal", url: "https://www.myscheme.gov.in" },
-      { name: "National Scholarship Portal", url: "https://scholarships.gov.in" }
-    ]
-  };
-}

@@ -1,646 +1,344 @@
-// frontend/src/components/LoginScreen.jsx — Bulletproof High-Fidelity NIVRA Glass Login (Image #3)
-import React, { useState } from 'react';
+// frontend/src/components/LoginScreen.jsx — NIVRA Liquid Glass Login
+import React, { useState, useRef, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
-import GoogleAuthModal from './GoogleAuthModal';
-import { Smartphone, Mail, ArrowRight, X, ShieldCheck, CheckCircle2, Loader2, KeyRound } from 'lucide-react';
+import GoogleSignInButton from './GoogleSignInButton';
+import { Smartphone, Mail, ArrowRight, X, CheckCircle2, Loader2, KeyRound, AlertCircle, Eye, EyeOff } from 'lucide-react';
 
-export default function LoginScreen() {
-  const { loginWithMobile, loginWithEmail, loginAsGuest, showGoogleModal, setShowGoogleModal } = useAuth();
-  
-  const [activeModal, setActiveModal] = useState(null); // 'mobile' | 'email' | null
-  const [mobileNum, setMobileNum] = useState('');
-  const [emailAddr, setEmailAddr] = useState('');
-  
-  // Verification states
-  const [otpStep, setOtpStep] = useState(1); // 1: Send OTP, 2: Enter OTP, 3: Verifying
-  const [otpCode, setOtpCode] = useState(['4', '8', '9', '2']);
-  const [emailStep, setEmailStep] = useState(1); // 1: Enter Email, 2: Verifying
+const OTP_LENGTH = 6;
 
-  const handleSendOtp = (e) => {
-    e.preventDefault();
-    if (!mobileNum) return;
-    setOtpStep(2);
+function Modal({ children, onClose, locked, label }) {
+  return (
+    <div
+      className="modal-backdrop z-[1000]"
+      onClick={e => { if (!locked && e.target === e.currentTarget) onClose(); }}
+      role="dialog"
+      aria-modal="true"
+      aria-label={label}
+    >
+      <div className="glass-panel glass-modal w-full max-w-sm p-6" style={{ borderRadius: 'var(--r-xl)' }}>
+        {!locked && (
+          <button onClick={onClose} className="btn-icon absolute top-4 right-4" aria-label="Close">
+            <X className="w-4 h-4" />
+          </button>
+        )}
+        {children}
+      </div>
+    </div>
+  );
+}
+
+export function FormError({ message }) {
+  if (!message) return null;
+  return (
+    <p role="alert" className="text-xs text-red-200 bg-red-500/15 border border-red-400/30 rounded-xl px-3 py-2 flex items-start gap-2">
+      <AlertCircle className="w-4 h-4 flex-shrink-0 mt-px" /> {message}
+    </p>
+  );
+}
+
+export function MobileFlow({ onClose }) {
+  const { requestOtp, verifyOtp, authConfig } = useAuth();
+  const [step, setStep] = useState('number'); // number | code
+  const [phone, setPhone] = useState('');
+  const [code, setCode] = useState(Array(OTP_LENGTH).fill(''));
+  const [devCode, setDevCode] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const refs = useRef([]);
+
+  const valid = /^[6-9]\d{9}$/.test(phone);
+
+  const send = async (e) => {
+    e?.preventDefault();
+    if (!valid || busy) return;
+    setBusy(true); setError('');
+    try {
+      const res = await requestOtp(phone);
+      setDevCode(res.devCode || '');
+      setCode(Array(OTP_LENGTH).fill(''));
+      setStep('code');
+      setTimeout(() => refs.current[0]?.focus(), 50);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
   };
 
-  const handleVerifyOtp = (e) => {
-    e.preventDefault();
-    setOtpStep(3);
-    setTimeout(() => {
-      loginWithMobile(mobileNum || '9876543210', 'Verified Citizen');
-      setActiveModal(null);
-      setOtpStep(1);
-    }, 1200);
+  const verify = async (digits) => {
+    const value = digits.join('');
+    if (value.length !== OTP_LENGTH || busy) return;
+    setBusy(true); setError('');
+    try {
+      await verifyOtp(phone, value);  // success unmounts the login screen
+    } catch (err) {
+      setError(err.message);
+      setBusy(false);
+    }
   };
 
-  const handleEmailSubmit = (e) => {
-    e.preventDefault();
-    if (!emailAddr) return;
-    setEmailStep(2);
-    setTimeout(() => {
-      loginWithEmail(emailAddr, emailAddr.split('@')[0]);
-      setActiveModal(null);
-      setEmailStep(1);
-    }, 1200);
+  const onDigit = (idx, raw) => {
+    const digits = raw.replace(/\D/g, '');
+    if (!digits) { setCode(c => c.map((d, i) => (i === idx ? '' : d))); return; }
+    // supports pasting the whole code into any box
+    const next = [...code];
+    for (let i = 0; i < digits.length && idx + i < OTP_LENGTH; i++) next[idx + i] = digits[i];
+    setCode(next);
+    refs.current[Math.min(idx + digits.length, OTP_LENGTH - 1)]?.focus();
+    if (next.every(Boolean)) verify(next);
   };
 
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        width: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '16px',
-        position: 'relative',
-        overflow: 'hidden',
-        backgroundColor: '#090a10',
-        fontFamily: "'Inter', sans-serif",
-        boxSizing: 'border-box',
-      }}
-    >
+    <Modal onClose={onClose} locked={busy && step === 'code'} label="Sign in with mobile">
+      {step === 'code' ? (
+        <form onSubmit={e => { e.preventDefault(); verify(code); }} className="flex flex-col gap-4">
+          <div className="flex items-center gap-2.5">
+            <KeyRound className="w-5 h-5 text-amber-300" />
+            <div>
+              <h3 className="font-display font-extrabold text-white text-base">Enter verification code</h3>
+              <p className="text-[11px] text-white/60">Sent by SMS to +91 {phone}</p>
+            </div>
+          </div>
 
-      {/* ── Ambient Warm Golden-Amber Radial Lighting (Matching Image #3) ── */}
-      <div
-        style={{
-          position: 'absolute',
-          top: '35%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          width: '500px',
-          height: '500px',
-          borderRadius: '50%',
-          pointerEvents: 'none',
-          opacity: 0.45,
-          background: 'radial-gradient(circle, rgba(245, 158, 11, 0.45) 0%, rgba(139, 92, 246, 0.25) 50%, rgba(236, 72, 153, 0.15) 75%, transparent 90%)',
-          filter: 'blur(75px)',
-        }}
-      />
+          <div className="flex justify-center gap-1.5 sm:gap-2">
+            {code.map((digit, idx) => (
+              <input
+                key={idx}
+                ref={el => (refs.current[idx] = el)}
+                inputMode="numeric"
+                autoComplete={idx === 0 ? 'one-time-code' : 'off'}
+                value={digit}
+                onChange={e => onDigit(idx, e.target.value)}
+                onKeyDown={e => { if (e.key === 'Backspace' && !code[idx] && idx > 0) refs.current[idx - 1]?.focus(); }}
+                aria-label={`Digit ${idx + 1}`}
+                className="input-glass !w-11 !h-13 !p-0 !rounded-2xl text-center text-xl font-black font-mono"
+              />
+            ))}
+          </div>
 
-      {/* ── Brand Header Container ── */}
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          textAlign: 'center',
-          marginBottom: '24px',
-          position: 'relative',
-          zIndex: 10,
-          maxWidth: '390px',
-          width: '100%',
-        }}
-      >
-        {/* Official NIVRA Brand Logo */}
+          {devCode && (
+            <p className="text-[11px] text-center text-amber-200/90 bg-amber-400/10 border border-amber-300/20 rounded-xl px-3 py-2">
+              Development mode (no SMS provider configured): your code is <b className="font-mono tracking-widest">{devCode}</b>
+            </p>
+          )}
+          <FormError message={error} />
+
+          <button type="submit" disabled={busy || code.some(d => !d)} className="btn-primary w-full justify-center !py-3 text-sm">
+            {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />} Verify & continue
+          </button>
+          <div className="flex justify-between text-xs">
+            <button type="button" onClick={() => { setStep('number'); setError(''); }} className="text-white/60 hover:text-white">Change number</button>
+            <button type="button" onClick={send} disabled={busy} className="text-amber-200 hover:text-white">Resend code</button>
+          </div>
+        </form>
+      ) : (
+        <form onSubmit={send} className="flex flex-col gap-4">
+          <div className="flex items-center gap-2.5">
+            <Smartphone className="w-5 h-5 text-amber-300" />
+            <h3 className="font-display font-extrabold text-white text-base">Sign in with mobile</h3>
+          </div>
+          <label className="block">
+            <span className="block text-[11px] font-bold text-white/70 mb-1.5">10-digit mobile number</span>
+            <div className="relative">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xs font-extrabold text-amber-300 z-10">+91</span>
+              <input
+                type="tel"
+                inputMode="numeric"
+                autoComplete="tel-national"
+                required
+                autoFocus
+                placeholder="98765 43210"
+                value={phone}
+                onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                className="input-glass !pl-12 font-mono"
+              />
+            </div>
+            {phone.length === 10 && !valid && (
+              <span className="block text-[11px] text-red-300 mt-1.5">Indian mobile numbers start with 6–9.</span>
+            )}
+          </label>
+          {authConfig.mobileDevMode && (
+            <p className="text-[10px] text-white/45">No SMS provider is configured, so the code will be shown on screen.</p>
+          )}
+          <FormError message={error} />
+          <button type="submit" disabled={!valid || busy} className="btn-primary w-full justify-center !py-3 text-sm">
+            {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Send code <ArrowRight className="w-4 h-4" /></>}
+          </button>
+        </form>
+      )}
+    </Modal>
+  );
+}
+
+export function EmailFlow({ onClose, initialMode = 'signin' }) {
+  const { loginWithEmail, register } = useAuth();
+  const [mode, setMode] = useState(initialMode); // signin | signup
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPw, setShowPw] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setBusy(true); setError('');
+    try {
+      if (mode === 'signup') await register(name, email, password);
+      else await loginWithEmail(email, password);
+      onClose();   // no-op on the login screen (it unmounts); closes the dialog when upgrading a guest
+    } catch (err) {
+      setError(err.message);
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal onClose={onClose} locked={busy} label="Sign in with email">
+      <form onSubmit={submit} className="flex flex-col gap-4">
+        <div className="flex items-center gap-2.5">
+          <Mail className="w-5 h-5 text-purple-300" />
+          <h3 className="font-display font-extrabold text-white text-base">{mode === 'signup' ? 'Create your account' : 'Sign in with email'}</h3>
+        </div>
+
+        <div className="liquid-pill rounded-full p-1 grid grid-cols-2 gap-1" role="tablist">
+          {[['signin', 'Sign in'], ['signup', 'Create account']].map(([m, label]) => (
+            <button
+              key={m}
+              type="button"
+              role="tab"
+              aria-selected={mode === m}
+              onClick={() => { setMode(m); setError(''); }}
+              className={`py-1.5 rounded-full text-xs font-bold transition-all ${mode === m ? 'bg-white/90 text-slate-900' : 'text-white/70 hover:text-white'}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {mode === 'signup' && (
+          <label className="block">
+            <span className="block text-[11px] font-bold text-white/70 mb-1.5">Full name</span>
+            <input required autoComplete="name" value={name} onChange={e => setName(e.target.value)} className="input-glass" placeholder="Asha Rao" />
+          </label>
+        )}
+        <label className="block">
+          <span className="block text-[11px] font-bold text-white/70 mb-1.5">Email address</span>
+          <input type="email" required autoFocus autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} className="input-glass" placeholder="you@example.com" />
+        </label>
+        <label className="block">
+          <span className="block text-[11px] font-bold text-white/70 mb-1.5">Password</span>
+          <div className="relative">
+            <input
+              type={showPw ? 'text' : 'password'}
+              required
+              minLength={mode === 'signup' ? 8 : 1}
+              autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              className="input-glass !pr-11"
+              placeholder={mode === 'signup' ? 'At least 8 characters' : ''}
+            />
+            <button type="button" onClick={() => setShowPw(s => !s)} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/50 hover:text-white" aria-label={showPw ? 'Hide password' : 'Show password'}>
+              {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
+          </div>
+        </label>
+
+        <FormError message={error} />
+        <button type="submit" disabled={busy} className="btn-primary w-full justify-center !py-3 text-sm">
+          {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <>{mode === 'signup' ? 'Create account' : 'Sign in'} <ArrowRight className="w-4 h-4" /></>}
+        </button>
+      </form>
+    </Modal>
+  );
+}
+
+export default function LoginScreen() {
+  const { loginWithGoogle, loginAsGuest, authConfig, bootError, retryBoot } = useAuth();
+  const [activeModal, setActiveModal] = useState(null); // 'mobile' | 'email' | null
+  const [error, setError] = useState('');
+  const [guestBusy, setGuestBusy] = useState(false);
+
+  const onGoogle = useCallback(async (credential) => {
+    setError('');
+    try { await loginWithGoogle(credential); } catch (err) { setError(err.message); }
+  }, [loginWithGoogle]);
+
+  const onGuest = async () => {
+    setGuestBusy(true); setError('');
+    try { await loginAsGuest(); } catch (err) { setError(err.message); setGuestBusy(false); }
+  };
+
+  return (
+    <div className="min-h-screen w-full flex flex-col items-center justify-center p-4 relative">
+
+      {/* Brand */}
+      <div className="flex flex-col items-center text-center mb-7 w-full max-w-[400px] fade-in">
         <img
           src="/nivra_logo.png"
           alt="NIVRA Logo"
-          style={{
-            width: '72px',
-            height: '72px',
-            borderRadius: '20px',
-            marginBottom: '14px',
-            objectFit: 'cover',
-            border: '1px solid rgba(245, 215, 175, 0.4)',
-            boxShadow: '0 12px 30px rgba(245, 158, 11, 0.35)',
-          }}
+          className="w-20 h-20 rounded-[24px] object-cover mb-4"
+          style={{ border: '1px solid rgba(255,255,255,0.35)', boxShadow: '0 18px 40px -10px rgba(255,140,90,0.55)' }}
         />
-
-        {/* Title */}
-        <h1
-          style={{
-            fontFamily: "'Space Grotesk', sans-serif",
-            fontWeight: 900,
-            fontSize: '32px',
-            color: '#FFFFFF',
-            letterSpacing: '-0.5px',
-            margin: 0,
-            lineHeight: 1.2,
-          }}
-        >
-          NIVRA
-        </h1>
-
-        {/* Subtitle */}
-        <p
-          style={{
-            fontSize: '11px',
-            fontWeight: 800,
-            color: '#FDE68A',
-            letterSpacing: '1.5px',
-            textTransform: 'uppercase',
-            marginTop: '6px',
-            marginBottom: '2px',
-          }}
-        >
+        <h1 className="font-display font-black text-4xl text-white tracking-tight">NIVRA</h1>
+        <p className="text-[11px] font-extrabold text-amber-200 tracking-[0.18em] uppercase mt-2">
           Navigate · Inform · Verify · Reach · Assist
         </p>
-
-        {/* Tagline */}
-        <p
-          style={{
-            fontSize: '14px',
-            fontWeight: 600,
-            color: 'rgba(255, 255, 255, 0.85)',
-            marginTop: '2px',
-          }}
-        >
-          Your Services. Simplified.
-        </p>
+        <p className="text-sm font-medium text-white/75 mt-1.5">Your services. Simplified.</p>
       </div>
 
-      {/* ── Main Glass Card (Strict 390px Max Width Viewport) ── */}
-      <div
-        style={{
-          width: '100%',
-          maxWidth: '390px',
-          padding: '24px',
-          position: 'relative',
-          zIndex: 10,
-          borderRadius: '28px',
-          background: 'rgba(22, 18, 35, 0.75)',
-          backdropFilter: 'blur(28px)',
-          WebkitBackdropFilter: 'blur(28px)',
-          border: '1px solid rgba(245, 215, 175, 0.22)',
-          boxShadow: '0 20px 50px rgba(0, 0, 0, 0.65), inset 0 1px 1px rgba(255, 255, 255, 0.25)',
-          boxSizing: 'border-box',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '16px',
-        }}
-      >
+      {/* Card */}
+      <div className="glass-panel w-full max-w-[400px] p-6 fade-in" style={{ borderRadius: 'var(--r-xl)', animationDelay: '0.08s' }}>
+        {bootError ? (
+          <div className="flex flex-col gap-3">
+            <FormError message={bootError} />
+            <button onClick={retryBoot} className="btn-secondary w-full justify-center">Try again</button>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-3">
+            {authConfig.googleClientId && (
+              <GoogleSignInButton clientId={authConfig.googleClientId} onCredential={onGoogle} onError={setError} />
+            )}
 
-        {/* ── Button List (Strict Vertical Layout) ── */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}>
-
-          {/* 1. PRIMARY GOOGLE BUTTON */}
-          <button
-            onClick={() => setShowGoogleModal(true)}
-            style={{
-              width: '100%',
-              padding: '13px 20px',
-              borderRadius: '999px',
-              backgroundColor: '#FFFFFF',
-              color: '#0F172A',
-              fontWeight: 800,
-              fontSize: '14px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '12px',
-              border: 'none',
-              cursor: 'pointer',
-              boxShadow: '0 8px 25px rgba(0, 0, 0, 0.25)',
-              transition: 'all 0.2s ease',
-              outline: 'none',
-            }}
-          >
-            {/* Standard 20px Google G Icon */}
-            <svg
-              style={{ width: '20px', height: '20px', flexShrink: 0, display: 'block' }}
-              viewBox="0 0 24 24"
-            >
-              <path
-                fill="#4285F4"
-                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-              />
-              <path
-                fill="#34A853"
-                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-              />
-              <path
-                fill="#FBBC05"
-                d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-              />
-              <path
-                fill="#EA4335"
-                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-              />
-            </svg>
-            <span style={{ letterSpacing: '0.2px' }}>Continue with Google</span>
-          </button>
-
-          {/* 2. SECONDARY MOBILE BUTTON */}
-          <button
-            onClick={() => { setActiveModal('mobile'); setOtpStep(1); }}
-            style={{
-              width: '100%',
-              padding: '13px 20px',
-              borderRadius: '999px',
-              backgroundColor: 'rgba(255, 255, 255, 0.1)',
-              color: '#FFFFFF',
-              fontWeight: 700,
-              fontSize: '14px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '12px',
-              border: '1px solid rgba(255, 255, 255, 0.25)',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease',
-              outline: 'none',
-            }}
-          >
-            <Smartphone style={{ width: '18px', height: '18px', color: '#F59E0B', flexShrink: 0 }} />
-            <span>Continue with Mobile</span>
-          </button>
-
-          {/* 3. OPTIONAL EMAIL BUTTON */}
-          <button
-            onClick={() => { setActiveModal('email'); setEmailStep(1); }}
-            style={{
-              width: '100%',
-              padding: '13px 20px',
-              borderRadius: '999px',
-              backgroundColor: 'rgba(255, 255, 255, 0.1)',
-              color: '#FFFFFF',
-              fontWeight: 700,
-              fontSize: '14px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '12px',
-              border: '1px solid rgba(255, 255, 255, 0.25)',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease',
-              outline: 'none',
-            }}
-          >
-            <Mail style={{ width: '18px', height: '18px', color: '#C4B5FD', flexShrink: 0 }} />
-            <span>Continue with Email</span>
-          </button>
-
-          {/* 4. EXPLORE AS GUEST BUTTON */}
-          <button
-            onClick={loginAsGuest}
-            style={{
-              width: '100%',
-              padding: '13px 20px',
-              borderRadius: '999px',
-              background: 'linear-gradient(135deg, rgba(56, 189, 248, 0.2) 0%, rgba(168, 85, 247, 0.2) 100%)',
-              color: '#38BDF8',
-              fontWeight: 800,
-              fontSize: '14px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '12px',
-              border: '1px solid rgba(56, 189, 248, 0.4)',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease',
-              outline: 'none',
-              boxShadow: '0 4px 15px rgba(56, 189, 248, 0.25)',
-            }}
-          >
-            <span>Explore as Guest</span>
-            <ArrowRight style={{ width: '18px', height: '18px' }} />
-          </button>
-
-        </div>
-
-        {/* Separator Divider */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: '6px 0' }}>
-          <div style={{ height: '1px', flex: 1, backgroundColor: 'rgba(255, 255, 255, 0.15)' }} />
-          <span style={{ fontSize: '10px', fontWeight: 800, color: 'rgba(255, 255, 255, 0.5)', letterSpacing: '2px' }}>OR</span>
-          <div style={{ height: '1px', flex: 1, backgroundColor: 'rgba(255, 255, 255, 0.15)' }} />
-        </div>
-
-        {/* Terms & Privacy */}
-        <p style={{ fontSize: '11px', textAlign: 'center', color: 'rgba(255, 255, 255, 0.55)', margin: 0, lineHeight: 1.5 }}>
-          By continuing, you agree to NIVRA's <br />
-          <span style={{ color: '#FDE68A', fontWeight: 600, cursor: 'pointer', textDecoration: 'underline' }}>Terms of Service</span> &amp;{' '}
-          <span style={{ color: '#FDE68A', fontWeight: 600, cursor: 'pointer', textDecoration: 'underline' }}>Privacy Policy</span>
-        </p>
-
-      </div>
-
-      {/* ── GOOGLE ACCOUNT SELECTOR MODAL ── */}
-      <GoogleAuthModal
-        isOpen={showGoogleModal}
-        onClose={() => setShowGoogleModal(false)}
-      />
-
-      {/* ── MOBILE OTP VERIFICATION MODAL ── */}
-      {activeModal === 'mobile' && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 1000,
-            backgroundColor: 'rgba(0, 0, 0, 0.85)',
-            backdropFilter: 'blur(16px)',
-            WebkitBackdropFilter: 'blur(16px)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '16px',
-          }}
-        >
-          <div
-            style={{
-              width: '100%',
-              maxWidth: '360px',
-              padding: '24px',
-              borderRadius: '24px',
-              backgroundColor: '#151221',
-              border: '1px solid rgba(245, 158, 11, 0.4)',
-              boxShadow: '0 20px 50px rgba(245, 158, 11, 0.3)',
-              position: 'relative',
-            }}
-          >
-            {otpStep !== 3 && (
-              <button
-                onClick={() => setActiveModal(null)}
-                style={{
-                  position: 'absolute',
-                  top: '16px',
-                  right: '16px',
-                  background: 'rgba(255,255,255,0.1)',
-                  border: 'none',
-                  color: '#fff',
-                  borderRadius: '8px',
-                  padding: '6px',
-                  cursor: 'pointer',
-                }}
-              >
-                <X style={{ width: '16px', height: '16px' }} />
+            {authConfig.mobileEnabled && (
+              <button onClick={() => setActiveModal('mobile')} className="btn-secondary w-full justify-center !py-3.5 text-sm">
+                <Smartphone className="w-[18px] h-[18px] text-amber-300" />
+                Continue with Mobile
               </button>
             )}
 
-            {/* Step 3: Verifying */}
-            {otpStep === 3 ? (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '16px 0', gap: '12px' }}>
-                <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: 'rgba(245,158,11,0.15)', display: 'flex', alignItems: 'center', justify: 'center' }}>
-                  <Loader2 style={{ width: '28px', height: '28px', color: '#F59E0B' }} className="animate-spin" />
-                </div>
-                <div>
-                  <h3 style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 800, color: '#fff', fontSize: '16px', margin: 0 }}>
-                    Verifying OTP Code...
-                  </h3>
-                  <p style={{ fontSize: '12px', color: '#FDE68A', marginTop: '4px' }}>
-                    Securing Session for +91 {mobileNum || '98765 43210'}
-                  </p>
-                </div>
-              </div>
-            ) : otpStep === 2 ? (
-              /* Step 2: Enter 4-Digit OTP Code */
-              <form onSubmit={handleVerifyOtp} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <KeyRound style={{ width: '20px', height: '20px', color: '#F59E0B' }} />
-                  <div>
-                    <h3 style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 800, color: '#fff', fontSize: '15px', margin: 0 }}>
-                      Enter Verification Code
-                    </h3>
-                    <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.6)', margin: 0 }}>
-                      Sent via SMS to +91 {mobileNum}
-                    </p>
-                  </div>
-                </div>
+            <button onClick={() => setActiveModal('email')} className="btn-secondary w-full justify-center !py-3.5 text-sm">
+              <Mail className="w-[18px] h-[18px] text-purple-300" />
+              Continue with Email
+            </button>
 
-                {/* 4 Digit Boxes */}
-                <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', margin: '8px 0' }}>
-                  {otpCode.map((digit, idx) => (
-                    <input
-                      key={idx}
-                      type="text"
-                      maxLength={1}
-                      value={digit}
-                      onChange={e => {
-                        const newOtp = [...otpCode];
-                        newOtp[idx] = e.target.value;
-                        setOtpCode(newOtp);
-                      }}
-                      style={{
-                        width: '44px',
-                        height: '50px',
-                        borderRadius: '12px',
-                        backgroundColor: 'rgba(255,255,255,0.08)',
-                        border: '1px solid rgba(245,158,11,0.5)',
-                        color: '#fff',
-                        textAlign: 'center',
-                        fontSize: '20px',
-                        fontWeight: 800,
-                        fontFamily: 'monospace',
-                      }}
-                    />
-                  ))}
-                </div>
+            <div className="flex items-center gap-3 my-1">
+              <div className="h-px flex-1 bg-white/15" />
+              <span className="text-[10px] font-extrabold text-white/45 tracking-[0.2em]">OR</span>
+              <div className="h-px flex-1 bg-white/15" />
+            </div>
 
-                <button
-                  type="submit"
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    borderRadius: '999px',
-                    background: 'linear-gradient(135deg, #F59E0B 0%, #EC4899 100%)',
-                    color: '#fff',
-                    fontWeight: 800,
-                    fontSize: '13px',
-                    border: 'none',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '8px',
-                  }}
-                >
-                  <CheckCircle2 style={{ width: '16px', height: '16px' }} />
-                  <span>Verify OTP &amp; Continue</span>
-                </button>
-              </form>
-            ) : (
-              /* Step 1: Enter Mobile Number */
-              <form onSubmit={handleSendOtp} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                  <Smartphone style={{ width: '20px', height: '20px', color: '#F59E0B' }} />
-                  <h3 style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 800, color: '#fff', fontSize: '16px', margin: 0 }}>
-                    Mobile Verification
-                  </h3>
-                </div>
+            <button onClick={onGuest} disabled={guestBusy} className="btn-primary w-full justify-center !py-3.5 text-sm">
+              {guestBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Explore as Guest <ArrowRight className="w-[18px] h-[18px]" /></>}
+            </button>
+            <p className="text-[10px] text-center text-white/45 -mt-1">Guest data stays on this device. Create an account later to keep it.</p>
 
-                <div>
-                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: 'rgba(255,255,255,0.7)', marginBottom: '6px' }}>
-                    Enter 10-Digit Mobile Number
-                  </label>
-                  <div style={{ position: 'relative' }}>
-                    <span style={{ position: 'absolute', left: '14px', top: '12px', fontSize: '12px', fontWeight: 800, color: '#F59E0B' }}>+91</span>
-                    <input
-                      type="tel"
-                      required
-                      placeholder="98765 43210"
-                      value={mobileNum}
-                      onChange={e => setMobileNum(e.target.value)}
-                      style={{
-                        width: '100%',
-                        padding: '10px 14px 10px 48px',
-                        borderRadius: '999px',
-                        backgroundColor: 'rgba(255,255,255,0.08)',
-                        border: '1px solid rgba(255,255,255,0.2)',
-                        color: '#fff',
-                        outline: 'none',
-                        fontSize: '13px',
-                        boxSizing: 'border-box',
-                        fontFamily: 'monospace',
-                      }}
-                    />
-                  </div>
-                </div>
-
-                <button
-                  type="submit"
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    borderRadius: '999px',
-                    background: 'linear-gradient(135deg, #F59E0B 0%, #EC4899 100%)',
-                    color: '#fff',
-                    fontWeight: 800,
-                    fontSize: '13px',
-                    border: 'none',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '8px',
-                  }}
-                >
-                  <span>Send Verification Code</span>
-                  <ArrowRight style={{ width: '16px', height: '16px' }} />
-                </button>
-              </form>
-            )}
+            <FormError message={error} />
           </div>
-        </div>
-      )}
+        )}
 
-      {/* ── EMAIL VERIFICATION MODAL ── */}
-      {activeModal === 'email' && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 1000,
-            backgroundColor: 'rgba(0, 0, 0, 0.85)',
-            backdropFilter: 'blur(16px)',
-            WebkitBackdropFilter: 'blur(16px)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '16px',
-          }}
-        >
-          <div
-            style={{
-              width: '100%',
-              maxWidth: '360px',
-              padding: '24px',
-              borderRadius: '24px',
-              backgroundColor: '#151221',
-              border: '1px solid rgba(139, 92, 246, 0.4)',
-              boxShadow: '0 20px 50px rgba(139, 92, 246, 0.3)',
-              position: 'relative',
-            }}
-          >
-            {emailStep !== 2 && (
-              <button
-                onClick={() => setActiveModal(null)}
-                style={{
-                  position: 'absolute',
-                  top: '16px',
-                  right: '16px',
-                  background: 'rgba(255,255,255,0.1)',
-                  border: 'none',
-                  color: '#fff',
-                  borderRadius: '8px',
-                  padding: '6px',
-                  cursor: 'pointer',
-                }}
-              >
-                <X style={{ width: '16px', height: '16px' }} />
-              </button>
-            )}
+        <p className="text-[11px] text-center text-white/50 mt-5 leading-relaxed">
+          By continuing, you agree to NIVRA's{' '}
+          <span className="text-amber-200 font-semibold underline underline-offset-2">Terms of Service</span> &{' '}
+          <span className="text-amber-200 font-semibold underline underline-offset-2">Privacy Policy</span>
+        </p>
+      </div>
 
-            {emailStep === 2 ? (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '16px 0', gap: '12px' }}>
-                <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: 'rgba(139,92,246,0.15)', display: 'flex', alignItems: 'center', justify: 'center' }}>
-                  <Loader2 style={{ width: '28px', height: '28px', color: '#A855F7' }} className="animate-spin" />
-                </div>
-                <div>
-                  <h3 style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 800, color: '#fff', fontSize: '16px', margin: 0 }}>
-                    Verifying Email Magic Link...
-                  </h3>
-                  <p style={{ fontSize: '12px', color: '#C4B5FD', marginTop: '4px' }}>
-                    Authenticating {emailAddr}
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <form onSubmit={handleEmailSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                  <Mail style={{ width: '20px', height: '20px', color: '#C4B5FD' }} />
-                  <h3 style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 800, color: '#fff', fontSize: '16px', margin: 0 }}>
-                    Email Verification
-                  </h3>
-                </div>
+      <p className="text-[11px] text-white/40 text-center mt-6">NIVRA Platform • One Place. Every Service.</p>
 
-                <div>
-                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: 'rgba(255,255,255,0.7)', marginBottom: '6px' }}>
-                    Email Address
-                  </label>
-                  <input
-                    type="email"
-                    required
-                    placeholder="student@gmail.com"
-                    value={emailAddr}
-                    onChange={e => setEmailAddr(e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '10px 14px',
-                      borderRadius: '999px',
-                      backgroundColor: 'rgba(255,255,255,0.08)',
-                      border: '1px solid rgba(255,255,255,0.2)',
-                      color: '#fff',
-                      outline: 'none',
-                      fontSize: '12px',
-                      boxSizing: 'border-box',
-                      fontFamily: 'monospace',
-                    }}
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    borderRadius: '999px',
-                    background: 'linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%)',
-                    color: '#fff',
-                    fontWeight: 800,
-                    fontSize: '13px',
-                    border: 'none',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '8px',
-                  }}
-                >
-                  <span>Verify &amp; Sign In</span>
-                  <ArrowRight style={{ width: '16px', height: '16px' }} />
-                </button>
-              </form>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Footer */}
-      <p style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.4)', textAlign: 'center', marginTop: '20px', zIndex: 10 }}>
-        NIVRA Platform • One Place. Every Service.
-      </p>
-
+      {activeModal === 'mobile' && <MobileFlow onClose={() => setActiveModal(null)} />}
+      {activeModal === 'email' && <EmailFlow onClose={() => setActiveModal(null)} />}
     </div>
   );
 }

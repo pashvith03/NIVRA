@@ -1,46 +1,61 @@
 // backend/server.js
 const express = require('express');
 const cors = require('cors');
-const path = require('path');
-require('dotenv').config();
-
+const helmet = require('helmet');
+const cookieParser = require('cookie-parser');
+const config = require('./config');
+const db = require('./db');
 const apiRoutes = require('./routes/api');
 
 const app = express();
-const PORT = process.env.PORT || 5000;
 
-// Middlewares
-app.use(cors());
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+// Behind Vercel/other proxies: trust the first hop so rate limits see real client IPs
+app.set('trust proxy', 1);
+app.disable('x-powered-by');
 
-// Static directory for uploaded disaster issue photos
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use(helmet({ crossOriginResourcePolicy: { policy: 'same-origin' } }));
 
-// Health Check Endpoint
-app.get('/health', (req, res) => {
-  res.json({
-    status: 'ONLINE',
-    platform: 'NIVRA — Navigate Inform Verify Reach Assist API',
-    timestamp: new Date().toISOString()
-  });
+// The frontend calls the API same-origin (Vercel rewrite / Vite proxy), so CORS is
+// only needed for extra origins listed in CORS_ORIGINS.
+const allowedOrigins = config.corsOrigins.length
+  ? config.corsOrigins
+  : (config.isProduction ? [] : ['http://localhost:5173', 'http://127.0.0.1:5173']);
+app.use(cors({ origin: allowedOrigins, credentials: true }));
+
+app.use(cookieParser());
+app.use(express.json({ limit: '100kb' }));
+app.use(express.urlencoded({ extended: false, limit: '100kb' }));
+
+// Make sure the schema exists before any request touches the database
+app.use(async (req, res, next) => {
+  try { await db.init(); next(); } catch (err) { next(err); }
 });
 
-// API Routes
+app.get('/health', (req, res) => res.redirect(307, '/api/health'));
 app.use('/api', apiRoutes);
 
-// Global Error Handler
+// Global error handler (Express 5 forwards rejected async handlers here)
+// eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {
-  console.error('Unhandled Error:', err);
-  res.status(500).json({ error: 'Internal Server Error', details: err.message });
+  let status = err.status || err.statusCode || 500;
+  let message = err.message;
+  if (err.name === 'MulterError') {
+    status = 400;
+    message = err.code === 'LIMIT_FILE_SIZE' ? 'Image is too large (max 5 MB).' : err.message;
+  }
+  if (err.type === 'entity.too.large') message = 'Request is too large.';
+  if (status >= 500) console.error('Unhandled Error:', err);
+  res.status(status).json({ error: status >= 500 ? 'Something went wrong on our side. Please try again.' : message });
 });
 
 if (require.main === module) {
-  app.listen(PORT, () => {
-    console.log(`=======================================================`);
-    console.log(`🚀 NIVRA Platform Server running on port ${PORT}`);
-    console.log(`🔗 API Base Endpoint: http://localhost:${PORT}/api`);
-    console.log(`=======================================================`);
+  db.init().then(() => {
+    app.listen(config.port, () => {
+      console.log(`🚀 NIVRA API on http://localhost:${config.port}/api  (database: ${db.kind()})`);
+    });
+  }).catch(err => {
+    console.error('Failed to start:', err);
+    process.exit(1);
   });
 }
 

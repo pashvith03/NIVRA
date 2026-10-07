@@ -1,59 +1,41 @@
-// backend/routes/api.js
+// backend/routes/api.js — mounts every /api route
 const express = require('express');
+const db = require('../db');
+const limits = require('../middleware/rateLimits');
+const { loadUser } = require('../middleware/auth');
+
 const router = express.Router();
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
 
-// Ensure uploads folder exists
-const uploadsDir = path.join(__dirname, '../uploads');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
+router.use(limits.general);
 
-// Multer Storage Configuration
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, uploadsDir);
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, uniqueSuffix + '-' + file.originalname.replace(/\s+/g, '_'));
-  }
+// 🩺 Health (reachable through the /api rewrite on Vercel)
+router.get('/health', async (req, res) => {
+  let database = 'ok';
+  try { await db.query('SELECT 1'); } catch { database = 'unavailable'; }
+  res.status(database === 'ok' ? 200 : 503).json({
+    status: database === 'ok' ? 'ONLINE' : 'DEGRADED',
+    database,
+    timestamp: new Date().toISOString(),
+  });
 });
-const upload = multer({ storage: storage });
 
-// Controllers
-const { processAIQuery, analyzeImage } = require('../controllers/aiController');
-const {
-  getScholarships,
-  getLoans,
-  getGovernmentSchemes,
-  getServiceGuides,
-  getEmergencyServices,
-  createDisasterReport,
-  getDisasterReports,
-  getTrackers,
-  addTracker
-} = require('../controllers/serviceController');
+// Every route below can see the signed-in user (if any)
+router.use(loadUser);
 
-// 🤖 AI Endpoints
-router.post('/ai/chat', processAIQuery);
-router.post('/ai/analyze-image', upload.single('image'), analyzeImage);
+router.use('/auth', require('./auth'));
 
-// 🎓 Student Services & Schemes
-router.get('/scholarships', getScholarships);
-router.get('/loans', getLoans);
-router.get('/schemes', getGovernmentSchemes);
-router.get('/guides', getServiceGuides);
+// 🤖 AI assistant (Claude, with a keyword fallback)
+router.use('/ai', require('./ai'));
 
-// 🚨 Emergency Services & Disaster Assistance
-router.get('/emergency', getEmergencyServices);
-router.get('/reports', getDisasterReports);
-router.post('/reports', upload.single('image'), createDisasterReport);
+// 🎓 Content: scholarships, loans, schemes, guides, facilities
+router.use(require('./content'));
 
-// 📊 Application Tracking
-router.get('/trackers', getTrackers);
-router.post('/trackers', addTracker);
+// 👤 Per-user data: trackers, saved items, reports, uploads
+router.use(require('./user'));
+
+// Unknown API route → JSON 404 instead of an HTML page
+router.use((req, res) => {
+  res.status(404).json({ error: 'Not Found', path: req.originalUrl });
+});
 
 module.exports = router;
