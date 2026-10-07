@@ -103,10 +103,16 @@ function profileLine(profile) {
  * @param {string} query
  * @param {{ history?: {role:'user'|'assistant', text:string}[], profile?: object }} ctx
  */
-async function chat(query, { history = [], profile } = {}) {
+const LANGUAGE_NAMES = { hi: 'Hindi', te: 'Telugu', ta: 'Tamil', mr: 'Marathi', bn: 'Bengali' };
+
+async function chat(query, { history = [], profile, language = 'en' } = {}) {
+  // The app language goes in the user turn (not the system prompt) so the cached catalog prefix stays identical
+  const langLine = LANGUAGE_NAMES[language]
+    ? `(My app is set to ${LANGUAGE_NAMES[language]}. Reply in ${LANGUAGE_NAMES[language]} unless I write in another language; keep scheme names as they are.)\n\n`
+    : '';
   const messages = [
     ...history.map(h => ({ role: h.role, content: h.text })),
-    { role: 'user', content: profileLine(profile) + query },
+    { role: 'user', content: langLine + profileLine(profile) + query },
   ];
   // The API requires the first message to be from the user
   while (messages.length && messages[0].role !== 'user') messages.shift();

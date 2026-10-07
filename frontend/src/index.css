@@ -108,7 +108,8 @@ body {
 .liquid-bg {
   position: fixed;
   inset: 0;
-  z-index: 0;
+  /* below all content in #root's stacking context (z-index 0 would paint over static blocks) */
+  z-index: -1;
   overflow: hidden;
   pointer-events: none;
   background:
@@ -540,12 +541,13 @@ h1, h2, h3 { font-family: 'Space Grotesk', sans-serif; font-weight: 700; letter-
 
 @keyframes fadeInUp {
   from { opacity: 0; transform: translateY(12px); }
-  to   { opacity: 1; transform: translateY(0); }
+  /* 'none' (not translateY(0)) so finished elements don't trap position:fixed children */
+  to   { opacity: 1; transform: none; }
 }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes popIn {
   from { opacity: 0; transform: scale(0.94) translateY(8px); }
-  to   { opacity: 1; transform: scale(1) translateY(0); }
+  to   { opacity: 1; transform: none; }
 }
 
 .stagger > * { animation: fadeInUp 0.55s var(--ease-out) both; }

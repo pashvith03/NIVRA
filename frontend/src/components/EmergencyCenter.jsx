@@ -7,19 +7,21 @@ import { useLocationCtx } from '../context/LocationContext';
 import FacilityMap, { TYPE_STYLE } from './FacilityMap';
 import { FormError } from './LoginScreen';
 import useDebounce from '../hooks/useDebounce';
+import { useLanguage } from '../context/LanguageContext';
 import {
   ShieldAlert, PhoneCall, Navigation, Crosshair, Search, Loader2, CloudRain, Thermometer,
   Droplets, Wind, AlertTriangle, Megaphone, X, CheckCircle2, ScanEye, Radio, MapPin, ExternalLink,
 } from 'lucide-react';
+import ModalPortal from './ModalPortal';
 
 const HELPLINES = [
-  { number: '112', label: 'All emergencies' },
-  { number: '108', label: 'Ambulance' },
-  { number: '100', label: 'Police' },
-  { number: '101', label: 'Fire' },
-  { number: '1070', label: 'State disaster' },
-  { number: '1098', label: 'Child helpline' },
-  { number: '181', label: 'Women helpline' },
+  { number: '112', label: 'hl_all' },
+  { number: '108', label: 'hl_ambulance' },
+  { number: '100', label: 'hl_police' },
+  { number: '101', label: 'hl_fire' },
+  { number: '1070', label: 'hl_disaster' },
+  { number: '1098', label: 'hl_child' },
+  { number: '181', label: 'hl_women' },
 ];
 
 const FILTERS = [
@@ -38,6 +40,7 @@ const openDirections = (f) =>
 // ─────────────── Location picker ───────────────
 function LocationBar() {
   const { location, status, error, locateMe, choosePlace } = useLocationCtx();
+  const { t } = useLanguage();
   const [q, setQ] = useState('');
   const [results, setResults] = useState([]);
   const [searching, setSearching] = useState(false);
@@ -69,7 +72,7 @@ function LocationBar() {
         </div>
         <button onClick={locateMe} disabled={status === 'locating'} className="btn-primary !py-2 !px-4 text-xs self-start sm:self-center">
           {status === 'locating' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Crosshair className="w-4 h-4" />}
-          {location?.source === 'gps' ? 'Update location' : 'Use my location'}
+          {location?.source === 'gps' ? t.update_location : t.use_location}
         </button>
       </div>
 
@@ -80,7 +83,7 @@ function LocationBar() {
             type="search"
             value={q}
             onChange={e => setQ(e.target.value)}
-            placeholder="Or search a city / town in India…"
+            placeholder={t.search_place}
             aria-label="Search for a place"
             className="input-glass pl-11 py-2.5 text-xs"
           />
@@ -110,6 +113,7 @@ function LocationBar() {
 
 // ─────────────── Weather + alerts ───────────────
 function ConditionsPanel({ location }) {
+  const { t } = useLanguage();
   const [weather, setWeather] = useState(null);
   const [alerts, setAlerts] = useState(null);
   const [error, setError] = useState('');
@@ -131,7 +135,7 @@ function ConditionsPanel({ location }) {
     <>
       <section className="glass-panel p-4">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-base font-bold text-white">Weather now</h3>
+          <h3 className="text-base font-bold text-white">{t.weather_now}</h3>
           {weather && <a href={weather.source.url} target="_blank" rel="noreferrer" className="text-[10px] text-white/40">Source: {weather.source.name}</a>}
         </div>
         {error && <FormError message={error} />}
@@ -174,7 +178,7 @@ function ConditionsPanel({ location }) {
 
       <section className="glass-panel p-4">
         <div className="flex items-center justify-between mb-2">
-          <h3 className="text-base font-bold text-white flex items-center gap-2"><Radio className="w-4 h-4 text-red-300" /> Official alerts{location.state ? ` · ${location.state}` : ''}</h3>
+          <h3 className="text-base font-bold text-white flex items-center gap-2"><Radio className="w-4 h-4 text-red-300" /> {t.official_alerts}{location.state ? ` · ${location.state}` : ''}</h3>
           <a href="https://sachet.ndma.gov.in" target="_blank" rel="noreferrer" className="text-[10px] text-white/40">NDMA SACHET</a>
         </div>
         {alerts === null && <p className="text-xs text-white/50">Checking for alerts…</p>}
@@ -201,6 +205,7 @@ function ConditionsPanel({ location }) {
 
 // ─────────────── Nearby facilities ───────────────
 function NearbyHelp({ location }) {
+  const { t } = useLanguage();
   const [facilities, setFacilities] = useState(null);
   const [error, setError] = useState('');
   const [filter, setFilter] = useState('all');
@@ -226,7 +231,7 @@ function NearbyHelp({ location }) {
   return (
     <section className="glass-panel p-4 space-y-3">
       <div>
-        <h3 className="text-base font-bold text-white">Help near you</h3>
+        <h3 className="text-base font-bold text-white">{t.help_near_you}</h3>
         <p className="text-xs text-white/55">Within 5 km, from OpenStreetMap. Details can be out of date. Call ahead when you can.</p>
       </div>
 
@@ -338,7 +343,7 @@ function ReportModal({ location, onClose }) {
   };
 
   return (
-    <div className="modal-backdrop z-[1500]" onClick={e => { if (e.target === e.currentTarget) onClose(); }} role="dialog" aria-modal="true" aria-label="Report a disaster issue">
+    <ModalPortal><div className="modal-backdrop z-[1500]" onClick={e => { if (e.target === e.currentTarget) onClose(); }} role="dialog" aria-modal="true" aria-label="Report a disaster issue">
       <div className="glass-panel glass-modal p-6 max-w-md w-full max-h-[90vh] overflow-y-auto" style={{ borderRadius: 'var(--r-xl)' }}>
         <button onClick={onClose} className="btn-icon absolute top-4 right-4" aria-label="Close"><X className="w-4 h-4" /></button>
 
@@ -414,13 +419,14 @@ function ReportModal({ location, onClose }) {
           </>
         )}
       </div>
-    </div>
+    </div></ModalPortal>
   );
 }
 
 // ─────────────── Page ───────────────
 export default function EmergencyCenter() {
   const { location } = useLocationCtx();
+  const { t } = useLanguage();
   const [showReport, setShowReport] = useState(false);
 
   return (
@@ -428,16 +434,16 @@ export default function EmergencyCenter() {
       {/* Helplines first: they work with no location and no internet */}
       <section className="glass-panel p-4">
         <div className="flex items-center justify-between gap-3 mb-3">
-          <h2 className="text-xl font-black text-white flex items-center gap-2"><ShieldAlert className="w-5 h-5 text-red-300" /> Emergency</h2>
+          <h2 className="text-xl font-black text-white flex items-center gap-2"><ShieldAlert className="w-5 h-5 text-red-300" /> {t.emergency}</h2>
           <button onClick={() => setShowReport(true)} className="btn-secondary !py-2 !px-3 text-xs">
-            <Megaphone className="w-4 h-4 text-red-300" /> Report a problem
+            <Megaphone className="w-4 h-4 text-red-300" /> {t.report_problem}
           </button>
         </div>
         <div className="grid grid-cols-3 sm:grid-cols-7 gap-2">
           {HELPLINES.map(h => (
             <a key={h.number} href={`tel:${h.number}`} className={`glass-card p-2.5 text-center ${h.number === '112' ? 'col-span-3 sm:col-span-1 !bg-red-500/25' : ''}`}>
               <p className="text-lg font-black text-white font-display">{h.number}</p>
-              <p className="text-[10px] text-white/60 leading-tight">{h.label}</p>
+              <p className="text-[10px] text-white/60 leading-tight">{t[h.label]}</p>
             </a>
           ))}
         </div>

@@ -7,8 +7,8 @@ import { API_BASE_URL, getJSON, request } from './http';
  * Ask the assistant. `history` is the recent conversation so follow-up questions work.
  * Throws ApiError when the server can't be reached (no fake answers).
  */
-export function sendAIQuery(query, history = []) {
-  return request('/ai/chat', { method: 'POST', body: { query, history } });
+export function sendAIQuery(query, history = [], language = 'en') {
+  return request('/ai/chat', { method: 'POST', body: { query, history, language } });
 }
 
 /**

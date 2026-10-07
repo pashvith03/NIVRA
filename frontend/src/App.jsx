@@ -1,13 +1,14 @@
 // frontend/src/App.jsx — NIVRA Platform Central Routing & App Shell
 import React, { useEffect, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, NavLink, useLocation, Link } from 'react-router-dom';
-import { LanguageProvider } from './context/LanguageContext';
+import { LanguageProvider, useLanguage } from './context/LanguageContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ChatProvider } from './context/ChatContext';
 import { LocationProvider } from './context/LocationContext';
 import { SavedProvider } from './context/SavedContext';
 import { ROUTES } from './routes';
 import Header from './components/Header';
+import OfflineBanner from './components/OfflineBanner';
 import SplashScreen from './components/SplashScreen';
 import LoginScreen from './components/LoginScreen';
 import LogoutConfirmModal from './components/LogoutConfirmModal';
@@ -24,11 +25,11 @@ import { Home as HomeIcon, Grid, Bell, User, Compass, Loader2 } from 'lucide-rea
 
 // Tab bar slots (index 2 is the centre AI button)
 const NAV_SLOTS = [
-  { to: ROUTES.home,      label: 'Home',     icon: HomeIcon, match: p => p === '/' },
-  { to: ROUTES.services,  label: 'Services', icon: Grid,     match: p => ['/services', '/scholarships', '/documents', '/eligibility'].some(r => p.startsWith(r)) },
+  { to: ROUTES.home,      label: 'nav_home',     icon: HomeIcon, match: p => p === '/' },
+  { to: ROUTES.services,  label: 'nav_services', icon: Grid,     match: p => ['/services', '/scholarships', '/documents', '/eligibility'].some(r => p.startsWith(r)) },
   { to: ROUTES.assistant, label: 'NIVRA AI', ai: true,       match: p => p.startsWith('/assistant') },
-  { to: ROUTES.emergency, label: 'Alerts',   icon: Bell,     match: p => p.startsWith('/emergency') },
-  { to: ROUTES.profile,   label: 'Profile',  icon: User,     match: p => p.startsWith('/profile') },
+  { to: ROUTES.emergency, label: 'nav_alerts',   icon: Bell,     match: p => p.startsWith('/emergency') },
+  { to: ROUTES.profile,   label: 'nav_profile',  icon: User,     match: p => p.startsWith('/profile') },
 ];
 
 function ScrollToTop() {
@@ -39,6 +40,7 @@ function ScrollToTop() {
 
 function BottomNav() {
   const { pathname } = useLocation();
+  const { t } = useLanguage();
   const activeIndex = NAV_SLOTS.findIndex(s => s.match(pathname));
   const showIndicator = activeIndex !== -1 && !NAV_SLOTS[activeIndex].ai;
 
@@ -73,7 +75,7 @@ function BottomNav() {
             aria-current={isActive ? 'page' : undefined}
           >
             <Icon className="w-5 h-5" />
-            <span>{slot.label}</span>
+            <span>{t[slot.label]}</span>
           </NavLink>
         );
       })}
@@ -107,6 +109,7 @@ function AppContent() {
       <div className="min-h-screen flex flex-col">
         <ScrollToTop />
         <Header />
+        <OfflineBanner />
 
         <main className="flex-1 pb-32 max-w-7xl w-full mx-auto px-3 sm:px-4 pt-3">
           <Suspense fallback={<div className="flex justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-amber-300" aria-label="Loading" /></div>}>

@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import { useLocationCtx } from '../context/LocationContext';
 import { ROUTES } from '../routes';
 import { MessageSquareWarning, Loader2, Share2, Send } from 'lucide-react';
@@ -23,6 +24,7 @@ const smsHref = (phone, body) => `sms:${phone.replace(/[\s-]/g, '')}?&body=${enc
 
 export default function SosContacts({ onNavigate }) {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const { location: saved } = useLocationCtx();
   const contacts = user?.emergencyContacts || [];
   const [message, setMessage] = useState('');
@@ -53,7 +55,7 @@ export default function SosContacts({ onNavigate }) {
       {!message ? (
         <button onClick={prepare} disabled={busy} className="btn-emergency !animate-none w-full justify-center !py-3 text-sm">
           {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <MessageSquareWarning className="w-4 h-4" />}
-          Alert my {contacts.length} emergency contact{contacts.length === 1 ? '' : 's'}
+          {t.sos_alert} ({contacts.length})
         </button>
       ) : (
         <>

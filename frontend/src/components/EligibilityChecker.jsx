@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { request } from '../services/http';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import { SaveButton } from '../context/SavedContext';
 import { ROUTES, trackState } from '../routes';
 import { FormError } from './LoginScreen';
@@ -108,6 +109,7 @@ function ResultCard({ r }) {
 
 export default function EligibilityChecker() {
   const { user, updateProfile } = useAuth();
+  const { t } = useLanguage();
   const [form, setForm] = useState(() => fromProfile(user?.profile));
   const [data, setData] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -143,8 +145,8 @@ export default function EligibilityChecker() {
         <div className="flex items-center gap-3 mb-4">
           <div className="service-icon-box" style={{ background: 'rgba(52,211,153,0.18)', color: '#34D399' }}><ListChecks className="w-6 h-6" /></div>
           <div>
-            <h2 className="text-2xl font-black text-white">Eligibility Checker</h2>
-            <p className="text-xs text-white/60">Answer what you can. Skipped questions never rule you out.</p>
+            <h2 className="text-2xl font-black text-white">{t.elig_title}</h2>
+            <p className="text-xs text-white/60">{t.elig_sub}</p>
           </div>
         </div>
 
@@ -165,7 +167,7 @@ export default function EligibilityChecker() {
           <div className="sm:col-span-2 space-y-2">
             <FormError message={error} />
             <button type="submit" disabled={busy} className="btn-primary w-full justify-center !py-3 text-sm">
-              {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <ListChecks className="w-4 h-4" />} Check what I can get
+              {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <ListChecks className="w-4 h-4" />} {t.elig_button}
             </button>
             <p className="text-[10px] text-white/45 text-center">Your answers are saved to your profile. This is a guide based on the main published rules. Always confirm on the official portal.</p>
           </div>

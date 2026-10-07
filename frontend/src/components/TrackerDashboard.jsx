@@ -4,6 +4,7 @@ import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { trackers as trackersApi, saved as savedApi, reports as reportsApi } from '../services/userApi';
 import { useAuth } from '../context/AuthContext';
 import { useSaved } from '../context/SavedContext';
+import { useLanguage } from '../context/LanguageContext';
 import { ROUTES } from '../routes';
 import { FormError, EmailFlow } from './LoginScreen';
 import { downloadIcs, daysUntil } from '../lib/ics';
@@ -13,6 +14,7 @@ import {
   BellRing, ClipboardList, Loader2, Bookmark, Megaphone, UserPlus, ShieldAlert,
   CalendarPlus, Pencil, Users, Phone, Plus
 } from 'lucide-react';
+import ModalPortal from './ModalPortal';
 
 // Remembers which navigation hand-offs were consumed (survives StrictMode double effects)
 const consumedTrackKeys = new Set();
@@ -49,6 +51,7 @@ function Section({ title, action, children, sectionRef }) {
 
 export default function TrackerDashboard() {
   const { user, setShowLogoutConfirm, deleteAccount } = useAuth();
+  const { t } = useLanguage();
   const location = useLocation();
   const navigate = useNavigate();
   const [trackers, setTrackers] = useState(null);
@@ -64,8 +67,13 @@ export default function TrackerDashboard() {
 
   const { trackItem, trackKey } = location.state || {};
 
+  // Trackers added on this page are kept even if an older list response lands afterwards
+  // (the initial list request and a "track this" hand-off run concurrently)
+  const addedRef = useRef([]);
+  const withAdded = (list) => [...addedRef.current.filter(a => !list.some(t => t.id === a.id)), ...list];
+
   useEffect(() => {
-    trackersApi.list().then(setTrackers).catch(err => { setError(err.message); setTrackers([]); });
+    trackersApi.list().then(list => setTrackers(withAdded(list))).catch(err => { setError(err.message); setTrackers(prev => prev || []); });
     savedApi.list().then(r => setSavedItems(r.data)).catch(() => {});
     reportsApi.mine().then(setMyReports).catch(() => {});
   }, []);
@@ -79,7 +87,10 @@ export default function TrackerDashboard() {
     trackersApi.add(serviceToTracker(trackItem))
       .then(({ tracker, duplicate }) => {
         setNotice(duplicate ? `You're already tracking “${tracker.title}”.` : `Now tracking “${tracker.title}”.`);
-        if (!duplicate) setTrackers(prev => [tracker, ...(prev || []).filter(t => t.id !== tracker.id)]);
+        if (!duplicate) {
+          addedRef.current = [tracker, ...addedRef.current];
+          setTrackers(prev => [tracker, ...(prev || []).filter(t => t.id !== tracker.id)]);
+        }
       })
       .catch(err => setError(err.message));
   }, [trackItem, trackKey, navigate, location.pathname]);
@@ -99,6 +110,7 @@ export default function TrackerDashboard() {
 
   const removeTracker = async (id) => {
     const before = trackers;
+    addedRef.current = addedRef.current.filter(t => t.id !== id);
     setTrackers(prev => prev.filter(t => t.id !== id));
     try { await trackersApi.remove(id); } catch (err) { setTrackers(before); setError(err.message); }
   };
@@ -110,11 +122,11 @@ export default function TrackerDashboard() {
   };
 
   const MENU = [
-    { icon: ClipboardList, label: 'My Applications', sub: `${trackers?.length ?? 0} being tracked`, color: '#5FD4FF', action: () => pipelineRef.current?.scrollIntoView({ behavior: 'smooth' }) },
-    { icon: Megaphone,     label: 'My Reports',      sub: `${myReports.length} disaster report${myReports.length === 1 ? '' : 's'}`, color: '#FFB547', action: () => reportsRef.current?.scrollIntoView({ behavior: 'smooth' }) },
-    { icon: MessageSquare, label: 'My Queries',      sub: 'Continue your AI assistant chat', color: '#C29BFF', action: () => navigate(ROUTES.assistant) },
+    { icon: ClipboardList, label: t.my_applications, sub: `${trackers?.length ?? 0} being tracked`, color: '#5FD4FF', action: () => pipelineRef.current?.scrollIntoView({ behavior: 'smooth' }) },
+    { icon: Megaphone,     label: t.my_reports,      sub: `${myReports.length} disaster report${myReports.length === 1 ? '' : 's'}`, color: '#FFB547', action: () => reportsRef.current?.scrollIntoView({ behavior: 'smooth' }) },
+    { icon: MessageSquare, label: t.my_queries,      sub: 'Continue your AI assistant chat', color: '#C29BFF', action: () => navigate(ROUTES.assistant) },
     ...(user?.isAdmin ? [{ icon: ShieldAlert, label: 'Report Queue', sub: 'Review & update incoming reports', color: '#FF4D63', action: () => navigate(ROUTES.admin) }] : []),
-    { icon: LogOut,        label: 'Log Out',         sub: 'End your current session', color: '#FF4D63', action: () => setShowLogoutConfirm(true) },
+    { icon: LogOut,        label: t.log_out,         sub: 'End your current session', color: '#FF4D63', action: () => setShowLogoutConfirm(true) },
   ];
 
   return (
@@ -140,7 +152,7 @@ export default function TrackerDashboard() {
 
         <button onClick={() => setShowAddModal(true)} className="btn-primary !py-2 !px-4 text-xs flex-shrink-0">
           <PlusCircle className="w-4 h-4" />
-          <span className="hidden sm:inline">Track Application</span>
+          <span className="hidden sm:inline">{t.track_application}</span>
         </button>
       </section>
 
@@ -185,7 +197,7 @@ export default function TrackerDashboard() {
       </section>
 
       {/* Application pipeline */}
-      <Section title="Application Pipeline" sectionRef={pipelineRef}>
+      <Section title={t.pipeline} sectionRef={pipelineRef}>
         {trackers === null && <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-amber-300" /></div>}
 
         {trackers?.length === 0 && (
@@ -253,7 +265,7 @@ export default function TrackerDashboard() {
       <EmergencyContacts />
 
       {/* Saved */}
-      <Section title="Saved Services">
+      <Section title={t.saved_services}>
         {savedItems.length === 0 ? (
           <p className="text-xs text-white/50 px-1">Tap the bookmark on any scholarship or scheme to save it here.</p>
         ) : (
@@ -274,7 +286,7 @@ export default function TrackerDashboard() {
       </Section>
 
       {/* Reports */}
-      <Section title="My Reports" sectionRef={reportsRef} action={<Link to={ROUTES.emergency} className="text-xs text-amber-300 font-semibold">New report</Link>}>
+      <Section title={t.my_reports} sectionRef={reportsRef} action={<Link to={ROUTES.emergency} className="text-xs text-amber-300 font-semibold">New report</Link>}>
         {myReports.length === 0 ? (
           <p className="text-xs text-white/50 px-1">Disaster reports you submit appear here with their latest status.</p>
         ) : (
@@ -327,7 +339,7 @@ export default function TrackerDashboard() {
       {showAddModal && (
         <AddTrackerModal
           onClose={() => setShowAddModal(false)}
-          onAdded={(t) => { setTrackers(prev => [t, ...(prev || [])]); setShowAddModal(false); }}
+          onAdded={(t) => { addedRef.current = [t, ...addedRef.current]; setTrackers(prev => [t, ...(prev || [])]); setShowAddModal(false); }}
         />
       )}
     </div>
@@ -354,7 +366,7 @@ function AddTrackerModal({ onClose, onAdded }) {
   };
 
   return (
-    <div className="modal-backdrop z-[150]" onClick={e => { if (e.target === e.currentTarget) onClose(); }} role="dialog" aria-modal="true" aria-label="Track application">
+    <ModalPortal><div className="modal-backdrop z-[150]" onClick={e => { if (e.target === e.currentTarget) onClose(); }} role="dialog" aria-modal="true" aria-label="Track application">
       <div className="glass-panel glass-modal p-6 max-w-md w-full" style={{ borderRadius: 'var(--r-xl)' }}>
         <button onClick={onClose} className="btn-icon absolute top-4 right-4" aria-label="Close"><X className="w-4 h-4" /></button>
         <h3 className="text-lg font-extrabold text-white mb-4">Track Application</h3>
@@ -382,7 +394,7 @@ function AddTrackerModal({ onClose, onAdded }) {
           </button>
         </form>
       </div>
-    </div>
+    </div></ModalPortal>
   );
 }
 
@@ -450,6 +462,7 @@ function TrackerDetails({ tracker, onSaved }) {
 // Who to alert from the SOS button
 function EmergencyContacts() {
   const { user, updateProfile } = useAuth();
+  const { t } = useLanguage();
   const [contacts, setContacts] = useState(user?.emergencyContacts || []);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -471,7 +484,7 @@ function EmergencyContacts() {
   };
 
   return (
-    <Section title="Emergency Contacts">
+    <Section title={t.emergency_contacts}>
       <div className="glass-panel p-4 space-y-3">
         <p className="text-xs text-white/60 flex items-start gap-2"><Users className="w-4 h-4 flex-shrink-0 text-red-300" /> The SOS button can send these people a message with your live location. Up to 5 contacts.</p>
         {contacts.length > 0 && (
