@@ -353,61 +353,11 @@ const disasterShelters = [
   }
 ];
 
-// In-Memory Storage for Reported Disaster Issues & Application Trackers
-const disasterReports = [
-  {
-    id: "rep-101",
-    category: "Flooding & Waterlogging",
-    location: "Sector 5 Low-Lying Area, Main Road",
-    description: "Waterlogging up to 3 feet in residential street. 4 families trapped, need food packets and rescue boat.",
-    severity: "HIGH",
-    reportedAt: new Date(Date.now() - 3600000 * 2).toISOString(),
-    status: "Dispatched to Rescue Team",
-    image: null,
-    contactNumber: "+91 99887 76655"
-  }
-];
-
-const applicationTrackers = [
-  {
-    id: "tr-1",
-    title: "Central Sector Scheme of Scholarships",
-    type: "Scholarship",
-    referenceNo: "NSP/2026/894120",
-    appliedDate: "2026-08-15",
-    currentStatus: "Under Institute Verification",
-    steps: [
-      { name: "Submitted", done: true, date: "2026-08-15" },
-      { name: "Institute Verification", done: false, date: "Pending (Due Sep 30)" },
-      { name: "State Officer Approval", done: false, date: "-" },
-      { name: "Direct Benefit Transfer (DBT) Disbursal", done: false, date: "-" }
-    ],
-    nextReminder: "Check verification status on Sep 30, 2026"
-  },
-  {
-    id: "tr-2",
-    title: "Vidya Lakshmi SBI Education Loan",
-    type: "Education Loan",
-    referenceNo: "VL/SBI/2026/5549",
-    appliedDate: "2026-09-01",
-    currentStatus: "Document Verification Completed",
-    steps: [
-      { name: "Application Received", done: true, date: "2026-09-01" },
-      { name: "Document Verification", done: true, date: "2026-09-10" },
-      { name: "Sanction Letter Issued", done: false, date: "Expected Sep 28" },
-      { name: "Disbursal to College", done: false, date: "-" }
-    ],
-    nextReminder: "Submit signed sanction letter copy by Oct 05, 2026"
-  }
-];
-
 module.exports = {
   scholarships,
   educationLoans,
   governmentSchemes,
   serviceGuides,
   emergencyServices,
-  disasterShelters,
-  disasterReports,
-  applicationTrackers
+  disasterShelters
 };

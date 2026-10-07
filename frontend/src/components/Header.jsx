@@ -4,7 +4,6 @@ import { Link } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
 import { ROUTES } from '../routes';
-import GoogleAuthModal from './GoogleAuthModal';
 import { ShieldAlert, Globe, PhoneCall, X, User } from 'lucide-react';
 
 const HELPLINES = [
@@ -19,7 +18,7 @@ const avatarFallback = (name) =>
 
 export default function Header() {
   const { lang, setLang } = useLanguage();
-  const { user, showGoogleModal, setShowGoogleModal } = useAuth();
+  const { user } = useAuth();
   const [showSOSModal, setShowSOSModal] = useState(false);
 
   return (
@@ -89,12 +88,7 @@ export default function Header() {
             </button>
 
             {/* Account */}
-            <button
-              onClick={() => setShowGoogleModal(true)}
-              className="btn-icon !p-0.5"
-              title="Account"
-              aria-label="Account"
-            >
+            <Link to={ROUTES.profile} className="btn-icon !p-0.5" title="Your profile" aria-label="Your profile">
               {user?.avatar ? (
                 <img
                   src={user.avatar}
@@ -105,12 +99,10 @@ export default function Header() {
               ) : (
                 <span className="w-8 h-8 rounded-full flex items-center justify-center"><User className="w-4 h-4" /></span>
               )}
-            </button>
+            </Link>
           </div>
         </div>
       </header>
-
-      <GoogleAuthModal isOpen={showGoogleModal} onClose={() => setShowGoogleModal(false)} />
 
       {/* ── SOS Helpline Modal ── */}
       {showSOSModal && (

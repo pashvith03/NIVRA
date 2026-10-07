@@ -8,6 +8,7 @@ export const ROUTES = {
   documents: '/documents',
   emergency: '/emergency',
   profile: '/profile',
+  admin: '/admin/reports',
 };
 
 // Navigate to the tracker and hand it a service to add

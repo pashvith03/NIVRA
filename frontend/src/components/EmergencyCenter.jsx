@@ -1,6 +1,8 @@
 // frontend/src/components/EmergencyCenter.jsx — NIVRA Emergency & Disaster Center
 import React, { useState, useEffect } from 'react';
-import { getEmergencyData, submitDisasterReport } from '../services/api';
+import { getEmergencyData } from '../services/api';
+import { reports } from '../services/userApi';
+import { FormError } from './LoginScreen';
 import {
   ShieldAlert, PhoneCall, MapPin, Hospital, Flame, Ambulance, Building, Pill,
   CloudRain, Navigation, Layers, Sun, AlertTriangle, Crosshair, Tent, Megaphone, X, CheckCircle2, Loader2
@@ -34,15 +36,21 @@ function ReportModal({ onClose }) {
   const [image, setImage] = useState(null);
   const [status, setStatus] = useState('idle'); // idle | sending | done
   const [result, setResult] = useState(null);
+  const [error, setError] = useState('');
 
   const update = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
 
   const submit = async (e) => {
     e.preventDefault();
     setStatus('sending');
-    const res = await submitDisasterReport(form, image);
-    setResult(res);
-    setStatus('done');
+    setError('');
+    try {
+      setResult(await reports.submit(form, image));
+      setStatus('done');
+    } catch (err) {
+      setError(err.message);
+      setStatus('idle');
+    }
   };
 
   return (
@@ -57,7 +65,7 @@ function ReportModal({ onClose }) {
             </div>
             <h3 className="text-lg font-extrabold text-white">Report submitted</h3>
             <p className="text-sm text-white/70 mt-1">{result?.message}</p>
-            {result?.report?.id && <p className="text-xs font-mono text-white/50 mt-2">Reference: {result.report.id}</p>}
+            {result?.report?.id && <p className="text-xs font-mono text-white/50 mt-2">Reference: {result.report.id.slice(0, 8).toUpperCase()}</p>}
             <button onClick={onClose} className="btn-primary mt-5 justify-center">Done</button>
           </div>
         ) : (
@@ -98,6 +106,7 @@ function ReportModal({ onClose }) {
                 <span className="block text-xs font-bold text-white/70 mb-1">Photo (optional)</span>
                 <input type="file" accept="image/*" onChange={e => setImage(e.target.files[0] || null)} className="text-xs text-white/70 file:mr-3 file:border-0 file:rounded-full file:px-3 file:py-1.5 file:bg-white/10 file:text-white" />
               </label>
+              <FormError message={error} />
               <button type="submit" disabled={status === 'sending'} className="btn-emergency w-full justify-center !py-3 text-sm !animate-none">
                 {status === 'sending' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Megaphone className="w-4 h-4" />}
                 Submit report

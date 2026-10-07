@@ -23,3 +23,6 @@ Thumbs.db
 
 # Runtime uploads (user-submitted images)
 backend/uploads/
+
+# Local embedded database
+backend/.data/

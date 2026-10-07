@@ -1,15 +1,7 @@
 // frontend/src/services/api.js
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
-
-// GET helper: builds an encoded query string and treats non-2xx as failure
-async function getJSON(path, params = {}) {
-  const qs = new URLSearchParams(
-    Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== '')
-  ).toString();
-  const res = await fetch(`${API_BASE_URL}${path}${qs ? `?${qs}` : ''}`);
-  if (!res.ok) throw new Error(`${path} responded ${res.status}`);
-  return res.json();
-}
+// Public content + AI. Content falls back to bundled samples when the API is unreachable;
+// user data (services/userApi.js) never fakes success.
+import { API_BASE_URL, getJSON } from './http';
 
 /**
  * Send Natural Language query to Backend AI Engine
@@ -136,91 +128,6 @@ export async function getEmergencyData(type = 'all') {
       emergencyFacilities: type === 'all' ? fallbackEmergency : fallbackEmergency.filter(f => f.type === type),
       disasterShelters: fallbackShelters
     };
-  }
-}
-
-/**
- * Submit Disaster Issue Report
- */
-export async function submitDisasterReport(reportData, imageFile) {
-  try {
-    const formData = new FormData();
-    formData.append('category', reportData.category);
-    formData.append('location', reportData.location);
-    formData.append('description', reportData.description);
-    formData.append('severity', reportData.severity);
-    formData.append('contactNumber', reportData.contactNumber);
-    if (imageFile) formData.append('image', imageFile);
-
-    const res = await fetch(`${API_BASE_URL}/reports`, {
-      method: 'POST',
-      body: formData
-    });
-    if (!res.ok) throw new Error('Report submission failed');
-    return await res.json();
-  } catch {
-    return {
-      success: true,
-      message: "Disaster report submitted locally. Transmitting to emergency squad.",
-      report: {
-        id: "rep-" + Date.now(),
-        category: reportData.category,
-        location: reportData.location,
-        description: reportData.description,
-        severity: reportData.severity,
-        reportedAt: new Date().toISOString(),
-        status: "Transmitted to Emergency Control Room"
-      }
-    };
-  }
-}
-
-/**
- * Fetch & Add Application Trackers
- */
-export async function getTrackers() {
-  try {
-    const data = await getJSON('/trackers');
-    return data.data || [];
-  } catch {
-    return fallbackTrackers;
-  }
-}
-
-export async function addTracker(trackerData) {
-  try {
-    const res = await fetch(`${API_BASE_URL}/trackers`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(trackerData)
-    });
-    if (!res.ok) throw new Error('Tracker save failed');
-    return await res.json();
-  } catch {
-    return {
-      success: true,
-      tracker: {
-        id: "tr-" + Date.now(),
-        title: trackerData.title,
-        type: trackerData.type,
-        referenceNo: trackerData.referenceNo,
-        appliedDate: new Date().toISOString().split('T')[0],
-        currentStatus: "Submitted - Processing",
-        steps: [
-          { name: "Application Submitted", done: true, date: new Date().toISOString().split('T')[0] },
-          { name: "Department Verification", done: false, date: "In Progress" }
-        ],
-        nextReminder: trackerData.nextReminder || "Check back in 5 days"
-      }
-    };
-  }
-}
-
-export async function deleteTracker(id) {
-  try {
-    await fetch(`${API_BASE_URL}/trackers/${encodeURIComponent(id)}`, { method: 'DELETE' });
-  } catch {
-    // offline: removal is local only
   }
 }
 
@@ -372,23 +279,6 @@ const fallbackShelters = [
     currentOccupancy: "120 Persons",
     facilities: ["Clean Water", "Hot Meals", "Medical Post", "Power Backup"],
     contactPhone: "+91 98765 43210"
-  }
-];
-
-const fallbackTrackers = [
-  {
-    id: "tr-1",
-    title: "Central Sector Scheme of Scholarships",
-    type: "Scholarship",
-    referenceNo: "NSP/2026/894120",
-    appliedDate: "2026-08-15",
-    currentStatus: "Under Institute Verification",
-    steps: [
-      { name: "Submitted", done: true, date: "2026-08-15" },
-      { name: "Institute Verification", done: false, date: "In Progress" },
-      { name: "DBT Disbursal", done: false, date: "Pending" }
-    ],
-    nextReminder: "Check verification status by Sep 30, 2026"
   }
 ];
 

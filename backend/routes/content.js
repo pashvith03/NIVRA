@@ -1,0 +1,95 @@
+// backend/routes/content.js — public reference content (schemes, scholarships, loans, guides, facilities)
+const express = require('express');
+const { z } = require('zod');
+const validate = require('../middleware/validate');
+const {
+  scholarships, educationLoans, governmentSchemes, serviceGuides,
+  emergencyServices, disasterShelters, findContentItem,
+} = require('../data/content');
+
+const router = express.Router();
+
+const listQuery = z.object({
+  category: z.string().trim().max(60).optional(),
+  search: z.string().trim().max(100).optional(),
+});
+
+const includesCI = (haystack, needle) => String(haystack || '').toLowerCase().includes(needle);
+
+// Category chips (engineering, ug, pg, girls...) match category, level or tags
+const CATEGORY_ALIASES = {
+  engineering: ['engineering', 'btech', 'technical'],
+  ug: ['ug', 'undergraduate', 'degree'],
+  pg: ['pg', 'postgraduate'],
+};
+
+router.get('/scholarships', validate({ query: listQuery }), (req, res) => {
+  const { category, search } = req.valid.query;
+  let results = scholarships;
+
+  if (category && category !== 'all') {
+    const terms = CATEGORY_ALIASES[category.toLowerCase()] || [category.toLowerCase()];
+    results = results.filter(s => terms.some(t =>
+      includesCI(s.category, t) || includesCI(s.level, t) || s.tags.some(tag => tag.toLowerCase() === t)));
+  }
+  if (search) {
+    const q = search.toLowerCase();
+    results = results.filter(s =>
+      includesCI(s.name, q) || includesCI(s.description, q) || s.tags.some(t => includesCI(t, q)));
+  }
+  res.json({ success: true, count: results.length, data: results });
+});
+
+router.get('/scholarships/:id', (req, res) => {
+  const item = scholarships.find(s => s.id === req.params.id);
+  if (!item) return res.status(404).json({ error: 'Scholarship not found' });
+  res.json({ success: true, data: item });
+});
+
+router.get('/loans', (req, res) => {
+  res.json({ success: true, count: educationLoans.length, data: educationLoans });
+});
+
+router.get('/schemes', validate({ query: listQuery }), (req, res) => {
+  const { category, search } = req.valid.query;
+  let results = governmentSchemes;
+  if (category && category !== 'all') {
+    results = results.filter(s => includesCI(s.category, category.toLowerCase()));
+  }
+  if (search) {
+    const q = search.toLowerCase();
+    results = results.filter(s =>
+      includesCI(s.name, q) || includesCI(s.benefit, q) || (s.tags || []).some(t => includesCI(t, q)));
+  }
+  res.json({ success: true, count: results.length, data: results });
+});
+
+router.get('/schemes/:id', (req, res) => {
+  const item = governmentSchemes.find(s => s.id === req.params.id);
+  if (!item) return res.status(404).json({ error: 'Scheme not found' });
+  res.json({ success: true, data: item });
+});
+
+router.get('/items/:id', (req, res) => {
+  const item = findContentItem(req.params.id);
+  if (!item) return res.status(404).json({ error: 'Not found' });
+  res.json({ success: true, data: item });
+});
+
+router.get('/guides', (req, res) => {
+  res.json({ success: true, data: serviceGuides });
+});
+
+router.get('/emergency', validate({ query: z.object({ type: z.string().trim().max(40).optional() }) }), (req, res) => {
+  const { type } = req.valid.query;
+  const results = type && type !== 'all'
+    ? emergencyServices.filter(e => e.type.toLowerCase() === type.toLowerCase())
+    : emergencyServices;
+  res.json({ success: true, emergencyFacilities: results, disasterShelters });
+});
+
+router.get('/shelters', (req, res) => {
+  res.json({ success: true, count: disasterShelters.length, data: disasterShelters });
+});
+
+module.exports = router;

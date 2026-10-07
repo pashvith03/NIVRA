@@ -15,6 +15,7 @@ import StudentHub from './components/StudentHub';
 import CitizenPortal from './components/CitizenPortal';
 import EmergencyCenter from './components/EmergencyCenter';
 import TrackerDashboard from './components/TrackerDashboard';
+import AdminReports from './components/AdminReports';
 import { Home as HomeIcon, Grid, Bell, User, Compass } from 'lucide-react';
 
 // Tab bar slots (index 2 is the centre AI button)
@@ -112,6 +113,7 @@ function AppContent() {
             <Route path={ROUTES.documents} element={<CitizenPortal viewMode="documents" />} />
             <Route path={ROUTES.emergency} element={<EmergencyCenter />} />
             <Route path={ROUTES.profile} element={<TrackerDashboard />} />
+            <Route path={ROUTES.admin} element={user?.isAdmin ? <AdminReports /> : <Navigate to={ROUTES.home} replace />} />
 
             {/* Legacy tab names → canonical URLs */}
             <Route path="/ai" element={<Navigate to={ROUTES.assistant} replace />} />

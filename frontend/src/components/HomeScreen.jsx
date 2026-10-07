@@ -34,7 +34,7 @@ function greeting() {
 }
 
 export default function HomeScreen() {
-  const { user, setShowGoogleModal } = useAuth();
+  const { user } = useAuth();
   const { sendMessage } = useChat();
   const { t } = useLanguage();
   const navigate = useNavigate();
@@ -63,12 +63,12 @@ export default function HomeScreen() {
             <p className="text-sm mt-1.5 text-white/65">{t.subtitle}</p>
           </div>
 
-          <button
-            onClick={() => setShowGoogleModal(true)}
+          <Link
+            to={ROUTES.profile}
             className="w-14 h-14 rounded-[18px] p-[2px] flex-shrink-0 transition-transform hover:scale-105"
             style={{ background: 'var(--accent-grad)', boxShadow: '0 10px 28px -8px rgba(255,95,162,0.6)' }}
-            title="Account"
-            aria-label="Account"
+            title="Your profile"
+            aria-label="Your profile"
           >
             {user?.avatar ? (
               <img
@@ -85,7 +85,7 @@ export default function HomeScreen() {
                 {firstName[0]}
               </span>
             )}
-          </button>
+          </Link>
         </div>
 
         {/* Ask NIVRA */}
