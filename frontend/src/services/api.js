@@ -1,56 +1,28 @@
 // frontend/src/services/api.js
 // Public content + AI. Content falls back to bundled samples when the API is unreachable;
 // user data (services/userApi.js) never fakes success.
-import { API_BASE_URL, getJSON } from './http';
+import { API_BASE_URL, getJSON, request } from './http';
 
 /**
- * Send Natural Language query to Backend AI Engine
+ * Ask the assistant. `history` is the recent conversation so follow-up questions work.
+ * Throws ApiError when the server can't be reached (no fake answers).
  */
-export async function sendAIQuery(query, userRole = 'all') {
-  try {
-    const response = await fetch(`${API_BASE_URL}/ai/chat`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query, userRole })
-    });
-    if (!response.ok) throw new Error('AI Server response error');
-    return await response.json();
-  } catch (error) {
-    console.warn('Backend server offline/connecting. Using fallback AI engine response.', error);
-    // Client-side fallback AI matching
-    return generateFallbackAIResponse(query);
-  }
+export function sendAIQuery(query, history = []) {
+  return request('/ai/chat', { method: 'POST', body: { query, history } });
 }
 
 /**
- * Upload image for AI disaster hazard vision analysis
+ * Analyse a report photo. Resolves to { available: false } when the server has no AI configured.
  */
-export async function analyzeImageAI(file, sampleType) {
+export async function analyzePhoto(file, note) {
+  const form = new FormData();
+  form.append('image', file);
+  if (note) form.append('note', note);
   try {
-    const formData = new FormData();
-    if (file) formData.append('image', file);
-    if (sampleType) formData.append('sampleType', sampleType);
-
-    const response = await fetch(`${API_BASE_URL}/ai/analyze-image`, {
-      method: 'POST',
-      body: formData
-    });
-    if (!response.ok) throw new Error('AI Vision response error');
-    return await response.json();
-  } catch (error) {
-    return {
-      success: true,
-      fileName: file ? file.name : (sampleType || "flood_hazard_sample.jpg"),
-      detectedCategory: sampleType === 'fire' ? 'Active Fire Hazard' : 'Flooding & Waterlogging',
-      confidence: '95%',
-      emergencyLevel: sampleType === 'fire' ? 'CRITICAL' : 'HIGH',
-      aiSummary: 'AI Vision Analysis detected urban waterlogging with submerged access routes. Immediate evacuation notice issued.',
-      recommendedActions: [
-        'Dispatched alert to Regional Disaster Response Squad',
-        'Redirected to nearest Flood Relief Shelter (Indoor Sports Complex)',
-        'Emergency SMS broadcast created'
-      ]
-    };
+    return await request('/ai/analyze-image', { method: 'POST', form });
+  } catch (err) {
+    if (err.status === 503) return { available: false };
+    throw err;
   }
 }
 
@@ -281,42 +253,3 @@ const fallbackShelters = [
     contactPhone: "+91 98765 43210"
   }
 ];
-
-function generateFallbackAIResponse(query) {
-  const text = query.toLowerCase();
-  let intent = "GENERAL_GUIDANCE";
-  let responseText = "";
-
-  if (text.includes("fee") || text.includes("scholarship") || text.includes("college") || text.includes("btech") || text.includes("student")) {
-    intent = "STUDENT_SCHOLARSHIP";
-    responseText = "🎓 Identified your requirement as **Student Scholarship & Fee Support**. Here are top matching options for your education.";
-  } else if (text.includes("loan") || text.includes("vidya lakshmi")) {
-    intent = "STUDENT_LOAN";
-    responseText = "🏦 Identified requirement as **Student Education Loan Assistance**. No collateral needed up to ₹7.5 Lakhs.";
-  } else if (text.includes("flood") || text.includes("rain") || text.includes("shelter") || text.includes("disaster")) {
-    intent = "DISASTER_ASSISTANCE";
-    responseText = "🚨 **Disaster Assistance Identified**: Immediate relief camp locations and disaster response guidance dispatched.";
-  } else if (text.includes("hospital") || text.includes("ambulance") || text.includes("police") || text.includes("fire")) {
-    intent = "EMERGENCY_LOCATOR";
-    responseText = "🚑 **Emergency Locator Active**: Contact numbers (112, 108) and nearby facilities available.";
-  } else {
-    responseText = "💡 **AI Assistance Ready**: Browse tailored scholarships, schemes, or emergency services below.";
-  }
-
-  return {
-    success: true,
-    intentCategory: intent,
-    responseText: responseText,
-    matchedItems: fallbackScholarships.concat(fallbackSchemes),
-    documentChecklist: ["Aadhaar Card", "Income Certificate", "Academic Marksheet"],
-    nextSteps: [
-      "Select a service card to review eligibility",
-      "Prepare your Aadhaar and Income Certificate",
-      "Apply directly on the linked official government portal"
-    ],
-    officialSources: [
-      { name: "myScheme Official Portal", url: "https://www.myscheme.gov.in" },
-      { name: "National Scholarship Portal", url: "https://scholarships.gov.in" }
-    ]
-  };
-}

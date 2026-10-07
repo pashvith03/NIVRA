@@ -1,16 +1,7 @@
-// backend/controllers/aiController.js
-const { scholarships, educationLoans, governmentSchemes, serviceGuides, emergencyServices, disasterShelters } = require('../data/database');
+// backend/services/keywordAssistant.js — rule-based answers used when Claude is not configured or unavailable
+const { scholarships, educationLoans, governmentSchemes, serviceGuides, emergencyServices, disasterShelters } = require('../data/content');
 
-/**
- * Smart AI Conversational Assistant & Intent Classification
- */
-const processAIQuery = (req, res) => {
-  const { query, userRole = "all", profile = {} } = req.body;
-
-  if (typeof query !== "string" || query.trim() === "") {
-    return res.status(400).json({ error: "Query cannot be empty" });
-  }
-
+function keywordAnswer(query) {
   const text = query.toLowerCase();
 
   // Problem Classification Logic
@@ -157,9 +148,9 @@ const processAIQuery = (req, res) => {
     ];
   }
 
-  // Response structure
-  return res.json({
+  return {
     success: true,
+    aiMode: "basic",
     query: query,
     intentCategory: intentCategory,
     urgentAction: urgentAction,
@@ -169,60 +160,8 @@ const processAIQuery = (req, res) => {
     nextSteps: nextSteps,
     officialSources: officialSources,
     disclaimer: "Note: AI guidance is for informational purposes. Official eligibility and approval rests with respective government departments."
-  });
-};
+  };
+}
 
-/**
- * AI Image Understanding for Disaster & Emergency Reports
- */
-const analyzeImage = (req, res) => {
-  const file = req.file;
-  const { sampleType } = req.body;
 
-  let detectedCategory = "Flooding & Waterlogging";
-  let confidence = "94%";
-  let emergencyLevel = "HIGH";
-  let aiSummary = "AI Vision Analysis detected urban waterlogging with submerged vehicles and blocked access roads.";
-  let recommendedActions = [
-    "Categorized under Emergency Disaster Assistance",
-    "Geotagged report created for municipal disaster response team",
-    "Recommended nearest flood relief camp location dispatched"
-  ];
-
-  if (sampleType === "fire" || (file && file.originalname.toLowerCase().includes("fire"))) {
-    detectedCategory = "Fire Hazard Emergency";
-    confidence = "97%";
-    emergencyLevel = "CRITICAL";
-    aiSummary = "AI Vision Analysis identified active smoke/flame ignition hazard requiring immediate fire command intervention.";
-    recommendedActions = [
-      "Alert sent to nearest Central Fire & Rescue Station (101)",
-      "Evacuation guidance initialized",
-      "Hospital trauma alert prepared"
-    ];
-  } else if (sampleType === "document" || (file && file.originalname.toLowerCase().includes("doc"))) {
-    detectedCategory = "Government Identity Document";
-    confidence = "91%";
-    emergencyLevel = "INFO";
-    aiSummary = "AI Document Vision identified Aadhaar / Income Certificate scan. Text parsed for eligibility verification.";
-    recommendedActions = [
-      "Verified Name, DOB and Address fields",
-      "Document format matches National Portal requirements",
-      "Attached to Scholarship Application Draft"
-    ];
-  }
-
-  return res.json({
-    success: true,
-    fileName: file ? file.filename : (sampleType || "uploaded_sample.jpg"),
-    detectedCategory,
-    confidence,
-    emergencyLevel,
-    aiSummary,
-    recommendedActions
-  });
-};
-
-module.exports = {
-  processAIQuery,
-  analyzeImage
-};
+module.exports = { keywordAnswer };

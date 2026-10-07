@@ -42,5 +42,5 @@ module.exports = {
   },
 
   anthropicApiKey: process.env.ANTHROPIC_API_KEY || '',
-  anthropicModel: process.env.ANTHROPIC_MODEL || 'claude-sonnet-5-5',
+  anthropicModel: process.env.ANTHROPIC_MODEL || 'claude-opus-5-5',
 };

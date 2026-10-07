@@ -6,7 +6,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { ROUTES, trackState } from '../routes';
 import {
   Send, ImagePlus, FileText, CheckCircle2, ExternalLink, Bot,
-  BookmarkPlus, ChevronRight, ListChecks, X, RotateCcw, ScanEye
+  BookmarkPlus, ChevronRight, ListChecks, X, RotateCcw, ScanEye, PhoneCall
 } from 'lucide-react';
 
 const INTENT_BADGES = {
@@ -46,14 +46,25 @@ function AIMessageDetails({ msg, onTrack }) {
   const items = (msg.matchedItems || []).slice(0, 6);
   return (
     <div className="mt-3 space-y-3">
-      {msg.imageAnalysis && (
+      {msg.urgentAction && (
+        <a href="tel:112" className="btn-emergency !animate-none w-full justify-center !py-2.5 text-sm">
+          <PhoneCall className="w-4 h-4" /> Call 112 now
+        </a>
+      )}
+
+      {msg.imageAnalysis?.success && (
         <div className="glass-well p-3">
           <p className="text-[11px] font-extrabold text-cyan-200 flex items-center gap-1.5 uppercase tracking-wider mb-1">
-            <ScanEye className="w-3.5 h-3.5" /> Image analysis · {msg.imageAnalysis.confidence}
+            <ScanEye className="w-3.5 h-3.5" /> Photo analysis · {msg.imageAnalysis.confidence} confidence
           </p>
-          <p className="text-xs text-white font-bold">{msg.imageAnalysis.detectedCategory} <span className="badge badge-red !text-[8px] ml-1">{msg.imageAnalysis.emergencyLevel}</span></p>
-          <p className="text-xs text-white/70 mt-1">{msg.imageAnalysis.aiSummary}</p>
+          <p className="text-xs text-white font-bold capitalize">
+            {msg.imageAnalysis.hazardType.replace('_', ' ')} <span className="badge badge-red !text-[8px] ml-1">{msg.imageAnalysis.severity}</span>
+          </p>
+          <p className="text-xs text-white/70 mt-1">{msg.imageAnalysis.summary}</p>
         </div>
+      )}
+      {msg.imageAnalysis?.available === false && (
+        <p className="text-[11px] text-white/50">Photo analysis isn't set up on this server, so I only read your text.</p>
       )}
 
       {msg.documentChecklist?.length > 0 && (
@@ -207,7 +218,10 @@ export default function AIChatAssistant() {
                 <>
                   <div className="n-logo-box !w-6 !h-6 !text-xs !rounded-lg">N</div>
                   <span className="text-xs font-bold text-white/80">NIVRA AI</span>
-                  <IntentBadge category={msg.intentCategory} />
+                  {!msg.welcome && !msg.error && <IntentBadge category={msg.intentCategory} />}
+                  {msg.aiMode === 'basic' && (
+                    <span className="badge badge-blue !text-[8px]" title="The AI model isn't available, so answers come from keyword matching">Basic mode</span>
+                  )}
                 </>
               ) : (
                 <span className="text-xs font-bold text-white/60">You</span>
@@ -226,7 +240,7 @@ export default function AIChatAssistant() {
               )}
               {msg.text && <div className="leading-relaxed whitespace-pre-line text-white/90"><RichText text={msg.text} /></div>}
 
-              {msg.sender === 'ai' && idx > 0 && <AIMessageDetails msg={msg} onTrack={handleTrack} />}
+              {msg.sender === 'ai' && !msg.welcome && !msg.error && <AIMessageDetails msg={msg} onTrack={handleTrack} />}
               {msg.sender === 'ai' && msg.disclaimer && (
                 <p className="text-[10px] text-white/40 mt-3">{t.officialNotice}</p>
               )}

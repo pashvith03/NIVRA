@@ -3,8 +3,6 @@ const express = require('express');
 const db = require('../db');
 const limits = require('../middleware/rateLimits');
 const { loadUser } = require('../middleware/auth');
-const { imageUpload } = require('../services/uploads');
-const { processAIQuery, analyzeImage } = require('../controllers/aiController');
 
 const router = express.Router();
 
@@ -26,9 +24,8 @@ router.use(loadUser);
 
 router.use('/auth', require('./auth'));
 
-// 🤖 AI
-router.post('/ai/chat', limits.ai, processAIQuery);
-router.post('/ai/analyze-image', limits.ai, imageUpload.single('image'), analyzeImage);
+// 🤖 AI assistant (Claude, with a keyword fallback)
+router.use('/ai', require('./ai'));
 
 // 🎓 Content: scholarships, loans, schemes, guides, facilities
 router.use(require('./content'));

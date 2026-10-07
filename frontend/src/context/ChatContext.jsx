@@ -1,14 +1,16 @@
 // frontend/src/context/ChatContext.jsx — AI conversation state that survives route changes
-import React, { createContext, useContext, useState, useCallback } from 'react';
-import { sendAIQuery, analyzeImageAI } from '../services/api';
+import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
+import { sendAIQuery, analyzePhoto } from '../services/api';
 
 const ChatContext = createContext();
 
 const now = () => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+const HISTORY_TURNS = 10;
 
 const WELCOME = {
   sender: 'ai',
-  text: "Namaste! 👋 I'm your **NIVRA AI Assistant**. Tell me your situation in simple words — for example: *'I am a college student needing help with fees'* or *'There is flooding in my street'*. I'll classify your problem and show exact schemes, loan rules, or emergency shelter steps.",
+  welcome: true,
+  text: "Namaste! 👋 I'm your **NIVRA AI Assistant**. Tell me your situation in simple words — for example: *'I am a college student needing help with fees'* or *'There is flooding in my street'*. I'll find matching schemes, the documents you need, and what to do next.",
   intentCategory: 'GENERAL_GUIDANCE',
   timestamp: now(),
 };
@@ -16,23 +18,41 @@ const WELCOME = {
 export const ChatProvider = ({ children }) => {
   const [messages, setMessages] = useState([WELCOME]);
   const [loading, setLoading] = useState(false);
+  const messagesRef = useRef(messages);
+  messagesRef.current = messages;
+
+  const append = (msg) => setMessages(prev => [...prev, msg]);
 
   const sendMessage = useCallback(async (text, imageFile = null, imagePreview = null) => {
-    const query = (text || '').trim();
+    let query = (text || '').trim();
     if (!query && !imageFile) return;
 
-    setMessages(prev => [...prev, { sender: 'user', text: query, imagePreview, timestamp: now() }]);
+    // Prior turns (text only) so follow-ups like "what documents for that?" make sense
+    const history = messagesRef.current
+      .filter(m => !m.welcome && !m.error && m.text)
+      .slice(-HISTORY_TURNS)
+      .map(m => ({ role: m.sender === 'user' ? 'user' : 'assistant', text: m.text }));
+
+    append({ sender: 'user', text: query, imagePreview, timestamp: now() });
     setLoading(true);
 
     try {
-      const imageAnalysis = imageFile ? await analyzeImageAI(imageFile) : null;
-      // An image with no caption still gets routed through the AI using the detected category
-      const res = await sendAIQuery(query || imageAnalysis?.detectedCategory || 'image report');
+      let imageAnalysis = null;
+      if (imageFile) {
+        imageAnalysis = await analyzePhoto(imageFile, query).catch(() => null);
+        if (imageAnalysis?.success) {
+          query = `${query || 'I am sending a photo of a problem.'}\n\n[Photo analysis: ${imageAnalysis.hazardType}, severity ${imageAnalysis.severity}. ${imageAnalysis.summary}]`;
+        } else if (!query) {
+          query = 'I want to report a problem with a photo.';
+        }
+      }
 
-      setMessages(prev => [...prev, {
+      const res = await sendAIQuery(query, history);
+      append({
         sender: 'ai',
-        text: res.responseText || 'Here is the guidance I prepared for your query.',
+        text: res.responseText || 'Here is what I found.',
         intentCategory: res.intentCategory || 'GENERAL_GUIDANCE',
+        aiMode: res.aiMode,
         matchedItems: res.matchedItems || [],
         documentChecklist: res.documentChecklist || [],
         nextSteps: res.nextSteps || [],
@@ -41,7 +61,15 @@ export const ChatProvider = ({ children }) => {
         disclaimer: res.disclaimer,
         imageAnalysis,
         timestamp: now(),
-      }]);
+      });
+    } catch (err) {
+      append({
+        sender: 'ai',
+        error: true,
+        text: `${err.message} If this is an emergency, call **112** now.`,
+        intentCategory: 'GENERAL_GUIDANCE',
+        timestamp: now(),
+      });
     } finally {
       setLoading(false);
     }
