@@ -29,8 +29,8 @@ function setClient(c) { client = c; }
 function compactCatalog() {
   const pick = (o, keys) => Object.fromEntries(keys.filter(k => o[k] !== undefined).map(k => [k, o[k]]));
   return {
-    scholarships: content.scholarships.map(s => pick(s, ['id', 'name', 'level', 'offeredBy', 'amount', 'eligibility', 'documents', 'deadline', 'officialLink', 'tags'])),
-    educationLoans: content.educationLoans.map(l => pick(l, ['id', 'schemeName', 'offeredBy', 'maxLoanAmount', 'interestRate', 'eligibility', 'requiredDocuments', 'officialSource'])),
+    scholarships: content.scholarships.map(s => pick(s, ['id', 'name', 'level', 'offeredBy', 'amount', 'eligibility', 'documents', 'applicationWindow', 'officialLink', 'tags'])),
+    educationLoans: content.educationLoans.map(l => pick(l, ['id', 'schemeName', 'offeredBy', 'maxLoanAmount', 'interestRate', 'eligibility', 'requiredDocuments', 'applicationWindow', 'officialSource'])),
     governmentSchemes: content.governmentSchemes.map(g => pick(g, ['id', 'name', 'ministry', 'category', 'benefit', 'eligibility', 'documents', 'process', 'officialLink'])),
     certificateGuides: content.serviceGuides.map(g => pick(g, ['id', 'serviceName', 'department', 'purpose', 'steps', 'documentsNeeded', 'officialPortal'])),
   };
@@ -49,7 +49,7 @@ const SYSTEM_PROMPT = `You are NIVRA, an assistant that helps people in India fi
 
 How to answer:
 - Work out what the person actually needs and answer that directly in plain, warm, simple English (or the language they wrote in). Keep "reply" short: 2-5 sentences. Use **bold** for the one or two things that matter most.
-- Ground every specific claim (amounts, income limits, deadlines, documents) in the CATALOG below. If the catalog doesn't cover their situation, say so honestly and point them to the closest official portal rather than inventing details.
+- Ground every specific claim (amounts, income limits, documents, application windows) in the CATALOG below. The catalog has no exact deadlines: never state a specific date; describe the usual application window and tell them to check the portal. If the catalog doesn't cover their situation, say so honestly and point them to the closest official portal rather than inventing details.
 - matchedItemIds: ids from the catalog that genuinely fit the person, best first, at most 4. Leave it empty if nothing fits. Never invent ids.
 - documentChecklist and nextSteps: concrete and specific to their case, at most 6 items each. Empty arrays are fine for simple questions.
 - sources: only URLs that appear in the CATALOG or in OFFICIAL_PORTALS. Never make up a URL.

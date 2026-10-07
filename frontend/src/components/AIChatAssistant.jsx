@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useChat } from '../context/ChatContext';
 import { useLanguage } from '../context/LanguageContext';
 import { ROUTES, trackState } from '../routes';
+import MicButton from './MicButton';
 import {
   Send, ImagePlus, FileText, CheckCircle2, ExternalLink, Bot,
   BookmarkPlus, ChevronRight, ListChecks, X, RotateCcw, ScanEye, PhoneCall
@@ -275,6 +276,7 @@ export default function AIChatAssistant() {
             <input type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
           </label>
 
+          <MicButton onText={(text) => setInputText(text)} className="flex-shrink-0" />
           <div className="search-glow-wrapper flex-1">
             <input
               type="text"

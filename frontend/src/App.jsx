@@ -5,6 +5,7 @@ import { LanguageProvider } from './context/LanguageContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ChatProvider } from './context/ChatContext';
 import { LocationProvider } from './context/LocationContext';
+import { SavedProvider } from './context/SavedContext';
 import { ROUTES } from './routes';
 import Header from './components/Header';
 import SplashScreen from './components/SplashScreen';
@@ -18,12 +19,13 @@ const CitizenPortal = lazy(() => import('./components/CitizenPortal'));
 const EmergencyCenter = lazy(() => import('./components/EmergencyCenter'));
 const TrackerDashboard = lazy(() => import('./components/TrackerDashboard'));
 const AdminReports = lazy(() => import('./components/AdminReports'));
+const EligibilityChecker = lazy(() => import('./components/EligibilityChecker'));
 import { Home as HomeIcon, Grid, Bell, User, Compass, Loader2 } from 'lucide-react';
 
 // Tab bar slots (index 2 is the centre AI button)
 const NAV_SLOTS = [
   { to: ROUTES.home,      label: 'Home',     icon: HomeIcon, match: p => p === '/' },
-  { to: ROUTES.services,  label: 'Services', icon: Grid,     match: p => ['/services', '/scholarships', '/documents'].some(r => p.startsWith(r)) },
+  { to: ROUTES.services,  label: 'Services', icon: Grid,     match: p => ['/services', '/scholarships', '/documents', '/eligibility'].some(r => p.startsWith(r)) },
   { to: ROUTES.assistant, label: 'NIVRA AI', ai: true,       match: p => p.startsWith('/assistant') },
   { to: ROUTES.emergency, label: 'Alerts',   icon: Bell,     match: p => p.startsWith('/emergency') },
   { to: ROUTES.profile,   label: 'Profile',  icon: User,     match: p => p.startsWith('/profile') },
@@ -101,6 +103,7 @@ function AppContent() {
   // keyed by user so a new sign-in never sees the previous user's conversation
   return (
     <ChatProvider key={user?.id}>
+    <SavedProvider key={user?.id}>
       <div className="min-h-screen flex flex-col">
         <ScrollToTop />
         <Header />
@@ -113,6 +116,7 @@ function AppContent() {
             <Route path={ROUTES.services} element={<CitizenPortal viewMode="all-services" />} />
             <Route path={ROUTES.scholarships} element={<StudentHub />} />
             <Route path={`${ROUTES.scholarships}/:id`} element={<StudentHub />} />
+            <Route path={ROUTES.eligibility} element={<EligibilityChecker />} />
             <Route path={ROUTES.documents} element={<CitizenPortal viewMode="documents" />} />
             <Route path={ROUTES.emergency} element={<EmergencyCenter />} />
             <Route path={ROUTES.profile} element={<TrackerDashboard />} />
@@ -135,6 +139,7 @@ function AppContent() {
           NIVRA — One Place. Every Service. • A Safer, Smarter and Stronger India With NIVRA
         </footer>
       </div>
+    </SavedProvider>
     </ChatProvider>
   );
 }

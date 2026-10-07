@@ -5,6 +5,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
 import { ROUTES } from '../routes';
 import { ShieldAlert, Globe, PhoneCall, X, User } from 'lucide-react';
+import SosContacts from './SosContacts';
 
 const HELPLINES = [
   { number: '112',  label: 'National Emergency', color: '#FF4D63' },
@@ -138,6 +139,10 @@ export default function Header() {
                   <PhoneCall className="w-5 h-5" style={{ color }} />
                 </a>
               ))}
+            </div>
+
+            <div className="mt-4 pt-4 border-t border-white/10">
+              <SosContacts onNavigate={() => setShowSOSModal(false)} />
             </div>
           </div>
         </div>

@@ -1,13 +1,16 @@
 // frontend/src/components/HomeScreen.jsx — NIVRA Home Dashboard
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useChat } from '../context/ChatContext';
 import { useLanguage } from '../context/LanguageContext';
 import { ROUTES } from '../routes';
+import { trackers as trackersApi } from '../services/userApi';
+import { daysUntil } from '../lib/ics';
+import MicButton from './MicButton';
 import {
   Search, ArrowUp, Building2, GraduationCap, Landmark, AlertTriangle,
-  ShieldAlert, FileText, ChevronRight, Sparkles, ClipboardList
+  ShieldAlert, FileText, ChevronRight, Sparkles, ClipboardList, ListChecks, CalendarClock
 } from 'lucide-react';
 
 const CORE_SERVICES = [
@@ -39,6 +42,16 @@ export default function HomeScreen() {
   const { t } = useLanguage();
   const navigate = useNavigate();
   const [inputText, setInputText] = useState('');
+  const [upcoming, setUpcoming] = useState([]);
+
+  // deadlines the user recorded on their trackers, next 14 days
+  useEffect(() => {
+    trackersApi.list()
+      .then(list => setUpcoming(list
+        .filter(t => t.deadline && daysUntil(t.deadline) >= 0 && daysUntil(t.deadline) <= 14)
+        .sort((a, b) => a.deadline.localeCompare(b.deadline))))
+      .catch(() => {});
+  }, []);
 
   const firstName = user?.name ? user.name.split(' ')[0] : 'there';
 
@@ -98,8 +111,9 @@ export default function HomeScreen() {
               onChange={e => setInputText(e.target.value)}
               placeholder="Ask NIVRA anything…"
               aria-label="Ask NIVRA"
-              className="input-glass pl-12 pr-14 py-4 text-sm"
+              className="input-glass pl-12 pr-24 py-4 text-sm"
             />
+            <MicButton onText={(text, final) => { setInputText(text); if (final) ask(text); }} className="absolute right-14 top-1/2 -translate-y-1/2 z-10 !p-2" />
             <button
               type="submit"
               disabled={!inputText.trim()}
@@ -119,6 +133,21 @@ export default function HomeScreen() {
           ))}
         </div>
       </section>
+
+      {upcoming.length > 0 && (
+        <Link to={ROUTES.profile} className="glass-card p-4 flex items-center gap-3 !border-amber-300/30">
+          <div className="service-icon-box !w-10 !h-10 !rounded-xl flex-shrink-0" style={{ background: 'rgba(255,181,71,0.2)', color: '#FFB547' }}>
+            <CalendarClock className="w-5 h-5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-bold text-white">{upcoming.length} deadline{upcoming.length === 1 ? '' : 's'} coming up</p>
+            <p className="text-xs text-white/65 truncate">
+              {upcoming.map(t => `${t.title} (${daysUntil(t.deadline) === 0 ? 'today' : `${daysUntil(t.deadline)}d`})`).join(' · ')}
+            </p>
+          </div>
+          <ChevronRight className="w-4 h-4 text-white/50 flex-shrink-0" />
+        </Link>
+      )}
 
       {/* Core Services */}
       <section>
@@ -147,6 +176,19 @@ export default function HomeScreen() {
         <div className="flex items-center justify-between px-1">
           <h3 className="text-base font-bold text-white">Recommended for You</h3>
         </div>
+
+        <Link to={ROUTES.eligibility} className="glass-card p-5 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="service-icon-box" style={{ background: 'rgba(52,211,153,0.2)', color: '#34D399' }}>
+              <ListChecks className="w-6 h-6" />
+            </div>
+            <div>
+              <h4 className="font-extrabold text-white text-base">What am I eligible for?</h4>
+              <p className="text-xs text-white/60">Answer a few questions and see matching scholarships and schemes</p>
+            </div>
+          </div>
+          <span className="btn-icon"><ChevronRight className="w-5 h-5" /></span>
+        </Link>
 
         <Link to={ROUTES.scholarships} className="glass-card p-5 flex items-center justify-between gap-4">
           <div className="flex items-center gap-4">

@@ -2,6 +2,7 @@
 const express = require('express');
 const { z } = require('zod');
 const validate = require('../middleware/validate');
+const { checkAll } = require('../services/eligibility');
 const {
   scholarships, educationLoans, governmentSchemes, serviceGuides,
   findContentItem,
@@ -78,6 +79,28 @@ router.get('/items/:id', (req, res) => {
 
 router.get('/guides', (req, res) => {
   res.json({ success: true, data: serviceGuides });
+});
+
+// Eligibility check: profile in the body (works signed out too)
+const profileSchema = z.object({
+  age: z.coerce.number().int().min(5).max(110).optional(),
+  gender: z.enum(['female', 'male', 'other']).optional(),
+  annualIncome: z.coerce.number().int().min(0).max(1_00_00_00_000).optional(),
+  category: z.enum(['general', 'obc', 'sc', 'st', 'ews']).optional(),
+  educationLevel: z.enum(['school', 'class11-12', 'diploma', 'ug', 'pg', 'none']).optional(),
+  state: z.string().trim().max(60).optional(),
+  occupation: z.enum(['student', 'farmer', 'artisan', 'salaried', 'self-employed', 'unemployed', 'other']).optional(),
+  disability: z.boolean().optional(),
+}).strip();
+
+router.post('/eligibility', validate({ body: z.object({ profile: profileSchema }) }), (req, res) => {
+  const results = checkAll(req.valid.body.profile);
+  const count = (s) => results.filter(r => r.status === s).length;
+  res.json({
+    success: true,
+    summary: { eligible: count('eligible') + count('likely'), maybe: count('maybe'), notEligible: count('not_eligible') },
+    results,
+  });
 });
 
 module.exports = router;

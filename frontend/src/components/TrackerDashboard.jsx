@@ -3,11 +3,15 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { trackers as trackersApi, saved as savedApi, reports as reportsApi } from '../services/userApi';
 import { useAuth } from '../context/AuthContext';
+import { useSaved } from '../context/SavedContext';
 import { ROUTES } from '../routes';
 import { FormError, EmailFlow } from './LoginScreen';
+import { downloadIcs, daysUntil } from '../lib/ics';
+import { findItemLink } from '../lib/items';
 import {
   CheckCircle2, Circle, PlusCircle, X, MessageSquare, ChevronRight, LogOut, Trash2,
-  BellRing, ClipboardList, Loader2, Bookmark, Megaphone, UserPlus, ShieldAlert
+  BellRing, ClipboardList, Loader2, Bookmark, Megaphone, UserPlus, ShieldAlert,
+  CalendarPlus, Pencil, Users, Phone, Plus
 } from 'lucide-react';
 
 // Remembers which navigation hand-offs were consumed (survives StrictMode double effects)
@@ -99,9 +103,10 @@ export default function TrackerDashboard() {
     try { await trackersApi.remove(id); } catch (err) { setTrackers(before); setError(err.message); }
   };
 
-  const unsave = async (id) => {
+  const { toggle: toggleSaved } = useSaved();
+  const unsave = (id) => {
     setSavedItems(prev => prev.filter(s => s.item.id !== id));
-    try { await savedApi.remove(id); } catch (err) { setError(err.message); }
+    toggleSaved(id);
   };
 
   const MENU = [
@@ -203,7 +208,7 @@ export default function TrackerDashboard() {
                     <span className="badge badge-purple !text-[9px] mb-1">{tr.type}</span>
                     <h4 className="font-extrabold text-white text-sm">{tr.title}</h4>
                     <p className="text-[11px] font-mono text-white/50">
-                      Ref: {tr.referenceNo} · Added {tr.appliedDate}{tr.deadline ? ` · Deadline ${tr.deadline}` : ''}
+                      Ref: {tr.referenceNo} · Added {tr.appliedDate}
                     </p>
                   </div>
                   <button onClick={() => removeTracker(tr.id)} className="btn-icon !p-1.5 flex-shrink-0" title="Stop tracking" aria-label={`Stop tracking ${tr.title}`}>
@@ -237,11 +242,15 @@ export default function TrackerDashboard() {
                 <p className="text-[11px] text-amber-300 font-semibold mt-3 flex items-center gap-1.5">
                   <BellRing className="w-3 h-3" /> {tr.currentStatus} · {tr.nextReminder}
                 </p>
+
+                <TrackerDetails tracker={tr} onSaved={updated => setTrackers(prev => prev.map(t => (t.id === updated.id ? updated : t)))} />
               </article>
             );
           })}
         </div>
       </Section>
+
+      <EmergencyContacts />
 
       {/* Saved */}
       <Section title="Saved Services">
@@ -374,5 +383,119 @@ function AddTrackerModal({ onClose, onAdded }) {
         </form>
       </div>
     </div>
+  );
+}
+
+// Real deadline + portal reference number, recorded by the user, with a calendar reminder
+function TrackerDetails({ tracker, onSaved }) {
+  const [editing, setEditing] = useState(false);
+  const [deadline, setDeadline] = useState(tracker.deadline || '');
+  const [referenceNo, setReferenceNo] = useState(tracker.referenceNo);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  const save = async (e) => {
+    e.preventDefault();
+    setBusy(true); setError('');
+    try {
+      const updated = await trackersApi.update(tracker.id, { deadline: deadline || null, referenceNo: referenceNo.trim() || tracker.referenceNo });
+      onSaved(updated);
+      setEditing(false);
+    } catch (err) { setError(err.message); } finally { setBusy(false); }
+  };
+
+  const days = tracker.deadline ? daysUntil(tracker.deadline) : null;
+  const urgency = days === null ? '' : days < 0 ? 'badge-red' : days <= 7 ? 'badge-saffron' : 'badge-blue';
+
+  if (editing) {
+    return (
+      <form onSubmit={save} className="mt-3 pt-3 border-t border-white/10 grid grid-cols-1 sm:grid-cols-3 gap-2 items-end">
+        <label className="block">
+          <span className="block text-[11px] font-bold text-white/60 mb-1">Deadline (from the portal)</span>
+          <input type="date" value={deadline} onChange={e => setDeadline(e.target.value)} className="input-glass text-xs !py-2" />
+        </label>
+        <label className="block">
+          <span className="block text-[11px] font-bold text-white/60 mb-1">Application / reference no.</span>
+          <input value={referenceNo} onChange={e => setReferenceNo(e.target.value)} maxLength={80} className="input-glass text-xs !py-2 font-mono" />
+        </label>
+        <div className="flex gap-2">
+          <button type="submit" disabled={busy} className="btn-primary !py-2 !px-4 text-xs flex-1 justify-center">{busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Save'}</button>
+          <button type="button" onClick={() => setEditing(false)} className="btn-secondary !py-2 !px-3 text-xs">Cancel</button>
+        </div>
+        <div className="sm:col-span-3"><FormError message={error} /></div>
+      </form>
+    );
+  }
+
+  return (
+    <div className="mt-3 pt-3 border-t border-white/10 flex flex-wrap items-center gap-2">
+      {tracker.deadline ? (
+        <span className={`badge ${urgency} !text-[10px] !normal-case`}>
+          Deadline {new Date(`${tracker.deadline}T00:00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+          {' · '}{days < 0 ? 'passed' : days === 0 ? 'today' : `${days} day${days === 1 ? '' : 's'} left`}
+        </span>
+      ) : (
+        <span className="text-[11px] text-white/45">No deadline set</span>
+      )}
+      <button onClick={() => setEditing(true)} className="btn-secondary !py-1 !px-2.5 text-[11px]"><Pencil className="w-3 h-3" /> {tracker.deadline ? 'Edit' : 'Add deadline & ref no.'}</button>
+      {tracker.deadline && days >= 0 && (
+        <button onClick={() => downloadIcs(tracker, findItemLink(tracker.itemId))} className="btn-secondary !py-1 !px-2.5 text-[11px]">
+          <CalendarPlus className="w-3 h-3" /> Add to calendar
+        </button>
+      )}
+    </div>
+  );
+}
+
+// Who to alert from the SOS button
+function EmergencyContacts() {
+  const { user, updateProfile } = useAuth();
+  const [contacts, setContacts] = useState(user?.emergencyContacts || []);
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const persist = async (next) => {
+    setBusy(true); setError('');
+    try {
+      const u = await updateProfile({ emergencyContacts: next });
+      setContacts(u.emergencyContacts);
+      return true;
+    } catch (err) { setError(err.message); return false; } finally { setBusy(false); }
+  };
+
+  const add = async (e) => {
+    e.preventDefault();
+    if (await persist([...contacts, { name: name.trim(), phone: phone.trim() }])) { setName(''); setPhone(''); }
+  };
+
+  return (
+    <Section title="Emergency Contacts">
+      <div className="glass-panel p-4 space-y-3">
+        <p className="text-xs text-white/60 flex items-start gap-2"><Users className="w-4 h-4 flex-shrink-0 text-red-300" /> The SOS button can send these people a message with your live location. Up to 5 contacts.</p>
+        {contacts.length > 0 && (
+          <ul className="space-y-2">
+            {contacts.map((c, i) => (
+              <li key={`${c.phone}-${i}`} className="glass-well px-3 py-2 flex items-center justify-between gap-2">
+                <span className="text-sm text-white font-semibold">{c.name} <span className="text-white/50 font-mono text-xs">{c.phone}</span></span>
+                <div className="flex gap-1.5">
+                  <a href={`tel:${c.phone.replace(/[\s-]/g, '')}`} className="btn-icon !p-1.5" aria-label={`Call ${c.name}`}><Phone className="w-3.5 h-3.5" /></a>
+                  <button onClick={() => persist(contacts.filter((_, j) => j !== i))} disabled={busy} className="btn-icon !p-1.5" aria-label={`Remove ${c.name}`}><X className="w-3.5 h-3.5" /></button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+        {contacts.length < 5 && (
+          <form onSubmit={add} className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-2">
+            <input required maxLength={60} value={name} onChange={e => setName(e.target.value)} placeholder="Name (e.g. Amma)" aria-label="Contact name" className="input-glass text-sm !py-2.5" />
+            <input required type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="+91 98480 22338" aria-label="Contact phone" className="input-glass text-sm !py-2.5" />
+            <button type="submit" disabled={busy} className="btn-secondary justify-center text-xs"><Plus className="w-4 h-4" /> Add</button>
+          </form>
+        )}
+        <FormError message={error} />
+      </div>
+    </Section>
   );
 }
