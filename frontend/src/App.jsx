@@ -1,22 +1,24 @@
 // frontend/src/App.jsx — NIVRA Platform Central Routing & App Shell
-import React, { useEffect } from 'react';
+import React, { useEffect, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, NavLink, useLocation, Link } from 'react-router-dom';
 import { LanguageProvider } from './context/LanguageContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ChatProvider } from './context/ChatContext';
+import { LocationProvider } from './context/LocationContext';
 import { ROUTES } from './routes';
 import Header from './components/Header';
 import SplashScreen from './components/SplashScreen';
 import LoginScreen from './components/LoginScreen';
 import LogoutConfirmModal from './components/LogoutConfirmModal';
 import HomeScreen from './components/HomeScreen';
-import AIChatAssistant from './components/AIChatAssistant';
-import StudentHub from './components/StudentHub';
-import CitizenPortal from './components/CitizenPortal';
-import EmergencyCenter from './components/EmergencyCenter';
-import TrackerDashboard from './components/TrackerDashboard';
-import AdminReports from './components/AdminReports';
-import { Home as HomeIcon, Grid, Bell, User, Compass } from 'lucide-react';
+// Pages load on demand so the first screen downloads less on slow mobile data
+const AIChatAssistant = lazy(() => import('./components/AIChatAssistant'));
+const StudentHub = lazy(() => import('./components/StudentHub'));
+const CitizenPortal = lazy(() => import('./components/CitizenPortal'));
+const EmergencyCenter = lazy(() => import('./components/EmergencyCenter'));
+const TrackerDashboard = lazy(() => import('./components/TrackerDashboard'));
+const AdminReports = lazy(() => import('./components/AdminReports'));
+import { Home as HomeIcon, Grid, Bell, User, Compass, Loader2 } from 'lucide-react';
 
 // Tab bar slots (index 2 is the centre AI button)
 const NAV_SLOTS = [
@@ -104,6 +106,7 @@ function AppContent() {
         <Header />
 
         <main className="flex-1 pb-32 max-w-7xl w-full mx-auto px-3 sm:px-4 pt-3">
+          <Suspense fallback={<div className="flex justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-amber-300" aria-label="Loading" /></div>}>
           <Routes>
             <Route path={ROUTES.home} element={<HomeScreen />} />
             <Route path={ROUTES.assistant} element={<AIChatAssistant />} />
@@ -122,6 +125,7 @@ function AppContent() {
 
             <Route path="*" element={<NotFound />} />
           </Routes>
+          </Suspense>
         </main>
 
         <BottomNav />
@@ -140,6 +144,7 @@ export default function App() {
     <BrowserRouter>
       <AuthProvider>
         <LanguageProvider>
+          <LocationProvider>
           <div className="liquid-bg" aria-hidden="true">
             <div className="blob blob-1" />
             <div className="blob blob-2" />
@@ -147,6 +152,7 @@ export default function App() {
             <div className="blob blob-4" />
           </div>
           <AppContent />
+          </LocationProvider>
         </LanguageProvider>
       </AuthProvider>
     </BrowserRouter>

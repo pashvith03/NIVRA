@@ -4,7 +4,7 @@ const { z } = require('zod');
 const validate = require('../middleware/validate');
 const {
   scholarships, educationLoans, governmentSchemes, serviceGuides,
-  emergencyServices, disasterShelters, findContentItem,
+  findContentItem,
 } = require('../data/content');
 
 const router = express.Router();
@@ -78,18 +78,6 @@ router.get('/items/:id', (req, res) => {
 
 router.get('/guides', (req, res) => {
   res.json({ success: true, data: serviceGuides });
-});
-
-router.get('/emergency', validate({ query: z.object({ type: z.string().trim().max(40).optional() }) }), (req, res) => {
-  const { type } = req.valid.query;
-  const results = type && type !== 'all'
-    ? emergencyServices.filter(e => e.type.toLowerCase() === type.toLowerCase())
-    : emergencyServices;
-  res.json({ success: true, emergencyFacilities: results, disasterShelters });
-});
-
-router.get('/shelters', (req, res) => {
-  res.json({ success: true, count: disasterShelters.length, data: disasterShelters });
 });
 
 module.exports = router;

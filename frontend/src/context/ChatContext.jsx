@@ -1,5 +1,5 @@
 // frontend/src/context/ChatContext.jsx — AI conversation state that survives route changes
-import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
 import { sendAIQuery, analyzePhoto } from '../services/api';
 
 const ChatContext = createContext();
@@ -19,7 +19,7 @@ export const ChatProvider = ({ children }) => {
   const [messages, setMessages] = useState([WELCOME]);
   const [loading, setLoading] = useState(false);
   const messagesRef = useRef(messages);
-  messagesRef.current = messages;
+  useEffect(() => { messagesRef.current = messages; }, [messages]);
 
   const append = (msg) => setMessages(prev => [...prev, msg]);
 
