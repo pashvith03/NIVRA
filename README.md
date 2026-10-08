@@ -25,7 +25,7 @@ backend/    Express 5 API (Vercel-compatible), Postgres (pg) or embedded PGlite
   routes/     auth · user data · content · eligibility · ai · geo
   services/   ai (Claude) · eligibility · geo (Open-Meteo, Nominatim, Overpass, NDMA) · sms · uploads
   data/       scheme catalog (versioned in git)
-  db/         schema.sql (applied automatically on start)
+  db/         schema.js (applied automatically on first use)
 ```
 
 - **Content** (schemes, scholarships) is code in `backend/data/database.js`. **User data** (accounts, trackers, saved items, reports, photos) is in Postgres.
@@ -69,15 +69,28 @@ Copy `backend/.env.example` to `backend/.env` locally. On Vercel, set these unde
 2. Deploy, then **open a deep link such as `/profile` directly and refresh it**. If it returns 404, add a rewrite that serves `index.html` for non-`/api` paths to the frontend service. (After the first visit, the service worker covers this, but first visits need the rewrite.)
 3. Check `https://<your-domain>/api/health`. It reports database status.
 
+## Troubleshooting a deployment
+
+**First, open `https://<your-domain>/api/health`.** It never crashes and tells you what's wrong:
+
+| You see | Meaning | Fix |
+|---|---|---|
+| `"status":"ONLINE","database":"ok"` | Everything is fine | |
+| `"status":"NOT_CONFIGURED"` with a `missing` list | `JWT_SECRET` and/or `DATABASE_URL` aren't set | Add them under **Vercel → Settings → Environment Variables** and **redeploy** (variables only apply to new deployments) |
+| `"database":"unavailable"` | The variables are set but the database can't be reached | Check the connection string, and that the database allows connections from Vercel |
+| A plain Vercel error page / `Request failed (500)` on the login screen | The function failed to start | Open **Vercel → Logs** for the deployment and read the first error |
+
+While setup is incomplete the site answers `503 This site isn't fully set up yet` instead of failing silently.
+
 ## Tests
 
 ```bash
-cd backend && npm test                  # 36 API tests on an in-memory Postgres; no network or keys needed
+cd backend && npm test                  # 42 tests: API, Claude (mocked), and the backend as Vercel compiles it; no network or keys needed
 cd frontend && npm run lint && npm run build
 cd frontend && npx playwright install chromium && npm run test:e2e   # 7 browser tests (real backend + production build)
 ```
 
-CI (`.github/workflows/ci.yml`) runs all three on every pull request. External services (Claude, Open-Meteo, OpenStreetMap, NDMA) are mocked in tests.
+CI (`.github/workflows/ci.yml`) runs all three on every pull request. The backend tests run twice: on the built-in database and against a real Postgres 16 server. External services (Claude, Open-Meteo, OpenStreetMap, NDMA) are mocked in tests.
 
 ## Before launch: please review
 
