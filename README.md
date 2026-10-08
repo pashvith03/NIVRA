@@ -53,7 +53,7 @@ Copy `backend/.env.example` to `backend/.env` locally. On Vercel, set these unde
 | Variable | Needed for | Notes |
 |---|---|---|
 | `JWT_SECRET` | **Required in production** | Any long random string (`openssl rand -hex 32`). The server refuses to start in production without it. |
-| `DATABASE_URL` | **Required in production** | Postgres connection string ([Neon](https://neon.tech) or [Supabase](https://supabase.com) free tiers work). Without it, Vercel uses an in-memory database that is wiped on every cold start. |
+| `DATABASE_URL` | **Required in production** | Postgres connection string ([Neon](https://neon.tech) or [Supabase](https://supabase.com) free tiers work). Connecting a database from the Vercel dashboard works too: the app also accepts `POSTGRES_URL` and prefixed names such as `STORAGE_URL` / `STORAGE_DATABASE_URL`, and `/api/health` shows which variable it used. Without any, Vercel uses an in-memory database that is wiped on every cold start. |
 | `ANTHROPIC_API_KEY` | AI assistant, photo analysis | From the [Claude Console](https://platform.claude.com). Model defaults to `claude-opus-5-5`; override with `ANTHROPIC_MODEL`. |
 | `GOOGLE_CLIENT_ID` | Google sign-in | OAuth 2.0 **Web** client ID from Google Cloud Console. Add your site's origin to *Authorized JavaScript origins*. |
 | `SMS_PROVIDER=twilio`, `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER` | Mobile OTP in production | Without these, mobile sign-in is hidden in production. Indian numbers need DLT-registered templates with most providers. |
@@ -85,7 +85,7 @@ While setup is incomplete the site answers `503 This site isn't fully set up yet
 ## Tests
 
 ```bash
-cd backend && npm test                  # 42 tests: API, Claude (mocked), and the backend as Vercel compiles it; no network or keys needed
+cd backend && npm test                  # 43 tests: API, Claude (mocked), and the backend as Vercel compiles it; no network or keys needed
 cd frontend && npm run lint && npm run build
 cd frontend && npx playwright install chromium && npm run test:e2e   # 7 browser tests (real backend + production build)
 ```

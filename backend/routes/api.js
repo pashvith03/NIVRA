@@ -24,6 +24,7 @@ router.get('/health', async (req, res) => {
   res.status(database === 'ok' ? 200 : 503).json({
     status: database === 'ok' ? 'ONLINE' : 'DEGRADED',
     database,
+    ...(config.databaseUrlVariable ? { databaseVariable: config.databaseUrlVariable } : {}),
     timestamp: new Date().toISOString(),
   });
 });

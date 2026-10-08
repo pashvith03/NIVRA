@@ -5,6 +5,22 @@ require('dotenv').config();
 const isProduction = process.env.NODE_ENV === 'production';
 const isTest = process.env.NODE_ENV === 'test';
 
+// The Postgres address. Vercel's database integrations (Neon, Supabase) name the variable after the
+// prefix chosen when connecting (STORAGE_URL, STORAGE_DATABASE_URL, POSTGRES_URL…), so accept those
+// too, as long as the value really is a Postgres address. The pooled address wins over "unpooled".
+function findDatabaseUrl() {
+  const isPostgres = (v) => /^postgres(ql)?:\/\//i.test(v || '');
+  for (const name of ['DATABASE_URL', 'POSTGRES_URL']) {
+    if (isPostgres(process.env[name])) return { name, url: process.env[name] };
+  }
+  const rank = (n) => (/UNPOOLED|NON_POOLING|PRISMA/.test(n) ? 2 : /(DATABASE|POSTGRES)_URL$/.test(n) ? 0 : 1);
+  const [found] = Object.entries(process.env)
+    .filter(([name, value]) => /URL$/.test(name) && isPostgres(value))
+    .sort(([a], [b]) => rank(a) - rank(b) || a.localeCompare(b));
+  return found ? { name: found[0], url: found[1] } : { name: '', url: '' };
+}
+const database = findDatabaseUrl();
+
 // Setup problems are reported, never thrown: a crash at load time makes the host (Vercel)
 // answer every request with its own generic 500 page, which hides what is actually wrong.
 // While problems exist the API answers 503 with a plain explanation (see routes/api.js).
@@ -23,7 +39,7 @@ if (!jwtSecret) {
 
 // Serverless hosts have no persistent disk: without a real database every account, tracker
 // and report would vanish whenever the function restarts.
-if (process.env.VERCEL && !process.env.DATABASE_URL) {
+if (process.env.VERCEL && !database.url) {
   setupProblems.push({ variable: 'DATABASE_URL', fix: 'a Postgres connection string (Neon or Supabase free plans work)' });
 }
 
@@ -45,7 +61,8 @@ module.exports = {
   sessionDays: 30,
 
   // Postgres connection (Neon, Supabase, RDS…). Unset → embedded PGlite.
-  databaseUrl: process.env.DATABASE_URL || '',
+  databaseUrl: database.url,
+  databaseUrlVariable: database.name,   // the name only, for diagnostics
   pgliteDir: process.env.PGLITE_DIR || (isTest ? '' : require('path').join(__dirname, '.data', 'pglite')),
 
   corsOrigins: list(process.env.CORS_ORIGINS),

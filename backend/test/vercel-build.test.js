@@ -69,3 +69,22 @@ test('configured, but the database is unreachable: pages without data still work
   assert.equal(guest.status, 503);
   assert.match(guest.body.error, /database couldn't be reached/);
 });
+
+test('the database address is found whatever prefix Vercel\'s integration used', () => {
+  const unreachable = 'postgres://u:p@127.0.0.1:1/none';
+  // e.g. connecting Neon with the default "STORAGE" prefix creates STORAGE_URL / STORAGE_DATABASE_URL
+  for (const name of ['STORAGE_URL', 'STORAGE_DATABASE_URL', 'POSTGRES_URL']) {
+    const r = probe({ JWT_SECRET: 'testsecret', [name]: unreachable }, ['GET /api/health']);
+    const health = r['GET /api/health'];
+    assert.equal(health.body.status, 'DEGRADED', `${name} should be picked up (reachable check fails, but it is configured)`);
+    assert.equal(health.body.database, 'unavailable');
+  }
+  // an unrelated URL is not mistaken for a database
+  const r = probe({ JWT_SECRET: 'testsecret', SOME_API_URL: 'https://example.com/x' }, ['GET /api/health']);
+  assert.equal(r['GET /api/health'].body.status, 'NOT_CONFIGURED');
+  assert.deepEqual(r['GET /api/health'].body.missing.map(m => m.variable), ['DATABASE_URL']);
+  // pooled beats unpooled
+  const both = probe({ JWT_SECRET: 'testsecret', STORAGE_URL_NON_POOLING: unreachable, STORAGE_URL: unreachable }, ['GET /api/health']);
+  assert.equal(both['GET /api/health'].body.databaseVariable, 'STORAGE_URL', 'names (never values) show which variable was used');
+  assert.doesNotMatch(JSON.stringify(both['GET /api/health'].body), /postgres:\/\//);
+});
